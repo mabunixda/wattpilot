@@ -321,3 +321,10 @@ func (w *Wattpilot) sendUpdate(name string, value interface{}) error {
 	w.onSendRepsonse(w._currentConnection, message)
 	return nil
 }
+
+func (w *Wattpilot) Status() (map[string]interface{},error) {
+	if !w._isInitialized {
+		return nil, errors.New("Connection is not initialzed")
+	}
+	return w._status, nil
+}
