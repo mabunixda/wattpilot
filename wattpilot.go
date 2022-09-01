@@ -1,4 +1,4 @@
-package main
+package wattpilot
 
 import (
 	"crypto/sha256"
