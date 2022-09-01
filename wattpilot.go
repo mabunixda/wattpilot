@@ -1,4 +1,4 @@
-package wattpilot
+package main
 
 import (
 	"crypto/sha256"
@@ -165,7 +165,7 @@ func (w *Wattpilot) onSendRepsonse(connection *websocket.Conn, message map[strin
 	// }
 
 	data, _ := json.Marshal(message)
-	log.Println(string(data))
+	// log.Println(string(data))
 	err := connection.WriteMessage(websocket.TextMessage, data)
 	if err != nil {
 		log.Println("Error during writing to websocket:", err)
@@ -201,10 +201,10 @@ func (w *Wattpilot) onEventDeltaStatus(connection *websocket.Conn, message map[s
 	w._status = merge(w._status, status)
 }
 func (w *Wattpilot) onEventClearInverters(connection *websocket.Conn, message map[string]interface{}) {
-	log.Println(message)
+	// log.Println(message)
 }
 func (w *Wattpilot) onEventUpdateInverter(connection *websocket.Conn, message map[string]interface{}) {
-	log.Println(message)
+	// log.Println(message)
 }
 
 func (w *Wattpilot) Connect() {
@@ -214,15 +214,14 @@ func (w *Wattpilot) Connect() {
 	signal.Notify(interrupt, os.Interrupt) // Notify the interrupt channel for SIGINT
 
 	socketUrl := "ws://" + w._host + "/ws"
-	conn, _, err := websocket.DefaultDialer.Dial(socketUrl, nil)
+	var err error
+	w._currentConnection, _, err = websocket.DefaultDialer.Dial(socketUrl, nil)
 	if err != nil {
 		log.Fatal("Error connecting to Websocket Server:", err)
 	}
 
-	defer conn.Close()
-	go w.receiveHandler(conn)
-	w._currentConnection = conn
-	go w.loop(conn)
+	go w.receiveHandler(w._currentConnection)
+	go w.loop(w._currentConnection)
 
 	<-w.connected
 
@@ -235,13 +234,13 @@ func (w *Wattpilot) loop(conn *websocket.Conn) {
 
 	for {
 		select {
-		// case <-time.After(time.Duration(1) * time.Millisecond * 1000):
-		//     // Send an echo packet every second
-		//     // err := conn.WriteMessage(websocket.TextMessage, []byte("Hello from GolangDocs!"))
-		//     if err != nil {
-		//         log.Println("Error during writing to websocket:", err)
-		//         return
-		//     }
+		case <-time.After(time.Duration(1) * time.Millisecond * 1000):
+		    // Send an echo packet every second
+		    err := conn.WriteMessage(websocket.TextMessage, []byte(""))
+		    if err != nil {
+		        log.Println("Error during writing to websocket:", err)
+		        return
+		    }
 
 		case <-interrupt:
 			// We received a SIGINT (Ctrl + C). Terminate gracefully...
@@ -272,7 +271,7 @@ func (w *Wattpilot) receiveHandler(connection *websocket.Conn) {
 			log.Println("Error in receive:", err)
 			return
 		}
-		log.Printf("Received: %s\n", msg)
+		// log.Printf("Received: %s\n", msg)
 		data := make(map[string]interface{})
 		json.Unmarshal(msg, &data)
 		msgType, isTypeAvailable := data["type"]
@@ -283,19 +282,28 @@ func (w *Wattpilot) receiveHandler(connection *websocket.Conn) {
 		if !isKnown {
 			continue
 		}
-		log.Printf("Calling " + msgType.(string))
+		// log.Printf("Calling " + msgType.(string))
 		funcCall(connection, data)
 	}
 }
+
 
 func (w *Wattpilot) GetProperty(name string) (interface{}, error) {
 	if !w._isInitialized {
 		return nil, errors.New("Connection is not valid")
 	}
+	origName := name
+	if v, isKnown := propertyMap[name]; isKnown {
+		name = v
+	}
 	if !hasKey(w._status, name) {
 		return nil, errors.New("Could not find " + name)
 	}
-	return w._status[name], nil
+	value := w._status[name]
+	if f, fOk := postProcess[origName]; fOk {
+		value, _ = f(value)
+	}
+	return value, nil
 }
 func (w *Wattpilot) SetProperty(name string, value interface{}) error {
 	if !w._isInitialized {
@@ -326,5 +334,35 @@ func (w *Wattpilot) Status() (map[string]interface{},error) {
 	if !w._isInitialized {
 		return nil, errors.New("Connection is not initialzed")
 	}
+
 	return w._status, nil
+}
+
+func (w *Wattpilot) StatusInfo() {
+
+	fmt.Println("Wattpilot: " + w._name )
+	fmt.Println("Serial: " + w._serial )
+
+	fmt.Printf("Car Connected: %v\n", w._status["car"].(float64))
+    fmt.Printf("Charge Status %v\n", w._status["alw"].(bool) )
+    fmt.Printf("Mode: %v\n", w._status["lmo"].(float64) )
+    fmt.Printf("Power: %v\n\nCharge: ", w._status["amp"].(float64) )
+
+	for _ , i := range []string{"voltage1", "voltage2", "voltage2"} {
+		v, _ := w.GetProperty(i)
+		fmt.Printf("%v V, ", v)
+	}
+	fmt.Printf("\n\t")
+	for _ , i := range []string{"amps1", "amps2", "amps3"} {
+		v, _ := w.GetProperty(i)
+		fmt.Printf("%v A, ", v)
+	}
+	fmt.Printf("\n\t")
+    	for _ , i := range []string{"power1", "power2", "power3"} {
+		v, _ := w.GetProperty(i)
+		fmt.Printf("%v kW, ", v)
+	}// fmt.Println("Charge: " + "%.2f" % self.power + "kW" + " ---- " + str(self.voltage1) + "V/" + str(self.voltage2) + "V/" + str(self.voltage3) + "V" + " -- "
+    // fmt.Println("%.2f" % self.amps1 + "A/" + "%.2f" % self.amps2 + "A/" + "%.2f" % self.amps3 + "A" + " -- "
+    // fmt.Println("%.2f" % self.power1 + "kW/" + "%.2f" % self.power2 + "kW/" + "%.2f" % self.power3 + "kW" + "\n"
+	fmt.Println("\n")
 }
