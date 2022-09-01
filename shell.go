@@ -6,9 +6,10 @@ import (
 	"bufio"
 	"log"
 	"strings"
+	"github.com/mabunixda/wattpilot/api"
 )
 
-type InputFunc func(*Wattpilot,[]string)
+type InputFunc func(*api.Wattpilot,[]string)
 
 var inputs = map[string]InputFunc {
 	"connect": inConnect,
@@ -17,13 +18,13 @@ var inputs = map[string]InputFunc {
 	"set": inSetValue,
 }
 
-func inStatus(w *Wattpilot, data []string) {
+func inStatus(w *api.Wattpilot, data []string) {
 	w.StatusInfo()
 
 	fmt.Println("")
 }
 
-func inGetValue(w *Wattpilot, data []string) {
+func inGetValue(w *api.Wattpilot, data []string) {
 	v, err :=w.GetProperty(data[0])
 	if(err != nil) {
 		fmt.Println(err)
@@ -31,7 +32,7 @@ func inGetValue(w *Wattpilot, data []string) {
 	}
 	fmt.Println(v)
 }
-func inSetValue(w *Wattpilot, data []string) {
+func inSetValue(w *api.Wattpilot, data []string) {
 	err := w.SetProperty(data[0], data[1])
 	if(err == nil) {
 		return
@@ -39,13 +40,14 @@ func inSetValue(w *Wattpilot, data []string) {
 	fmt.Println("error:",err)
 }
 
-func inConnect(w *Wattpilot, data []string) {
+func inConnect(w *api.Wattpilot, data []string) {
 	w.Connect()
 }
+var interrupt chan os.Signal
 
 func main() {
 
-	w := NewWattpilot(os.Getenv("WATTPILOT_HOST"), os.Getenv("WATTPILOT_PASSWORD"))
+	w := api.NewWattpilot(os.Getenv("WATTPILOT_HOST"), os.Getenv("WATTPILOT_PASSWORD"))
 	w.Connect()
 
 	w.StatusInfo()
