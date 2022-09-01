@@ -6,7 +6,7 @@ import (
 	"bufio"
 	"log"
 	"strings"
-	"github.com/mabunixda/wattpilot/api"
+	"github.com/mabunixda/wattpilot"
 )
 
 type InputFunc func(*api.Wattpilot,[]string)
