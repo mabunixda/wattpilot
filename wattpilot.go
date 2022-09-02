@@ -1,6 +1,7 @@
 package api
 
 import (
+	"crypto/hmac"
 	"crypto/sha256"
 	"crypto/sha512"
 	"encoding/base64"
@@ -15,6 +16,7 @@ import (
 	"os"
 	"os/signal"
 	"time"
+	"strconv"
 )
 
 type Wattpilot struct {
@@ -47,7 +49,7 @@ func NewWattpilot(host string, password string) *Wattpilot {
 		connected:      make(chan bool),
 		initialized:    make(chan bool),
 		_isInitialized: false,
-		_requestId:     0,
+		_requestId:     1,
 	}
 
 	w.eventHandler = map[string]EventFunc{
@@ -146,31 +148,31 @@ func (w *Wattpilot) onEventAuthRequired(connection *websocket.Conn, message map[
 		"token3": w._token3,
 		"hash":   hash,
 	}
-	w.onSendRepsonse(connection, response)
+	w.onSendRepsonse(connection, false, response)
 }
-func (w *Wattpilot) onSendRepsonse(connection *websocket.Conn, message map[string]interface{}) {
+func (w *Wattpilot) onSendRepsonse(connection *websocket.Conn, secured bool, message map[string]interface{}) (error) {
 
-	// if _secured {
-	// 	msgId := message["requestId"].(string)
-	// 	payload,_ := json.Marshal(message)
+	if secured {
+		msgId := message["requestId"].(int)
+		payload,_ := json.Marshal(message)
 
-	// 	mac := hmac.New(sha256.New, []byte(_hashedpassword))
-	// 	mac.Write(payload)
-	// 	message = make(map[string]interface{})
-	// 	message["type"] = "securedMsg"
-	// 	message["data"] = string(payload)
-	// 	message["requestId"] = msgId + "sm"
-	// 	message["hmac"] = mac.Sum(nil)
-
-	// }
+		mac := hmac.New(sha256.New, []byte(w._hashedpassword))
+		mac.Write(payload)
+		message = make(map[string]interface{})
+		message["type"] = "securedMsg"
+		message["data"] = string(payload)
+		message["requestId"] = strconv.Itoa(msgId) + "sm"
+		message["hmac"] = hex.EncodeToString(mac.Sum(nil))
+	}
 
 	data, _ := json.Marshal(message)
-	// log.Println(string(data))
+	log.Println(string(data))
 	err := connection.WriteMessage(websocket.TextMessage, data)
 	if err != nil {
 		log.Println("Error during writing to websocket:", err)
-		return
+		return err
 	}
+	return nil
 }
 
 func (w *Wattpilot) onEventResponse(connection *websocket.Conn, message map[string]interface{}) {
@@ -214,6 +216,7 @@ func (w *Wattpilot) Connect() {
 	signal.Notify(interrupt, os.Interrupt) // Notify the interrupt channel for SIGINT
 
 	socketUrl := "ws://" + w._host + "/ws"
+	log.Println(socketUrl)
 	var err error
 	w._currentConnection, _, err = websocket.DefaultDialer.Dial(socketUrl, nil)
 	if err != nil {
@@ -326,7 +329,7 @@ func (w *Wattpilot) sendUpdate(name string, value interface{}) error {
 	message["requestId"] = w.getRequestId()
 	message["key"] = name
 	message["value"] = value
-	w.onSendRepsonse(w._currentConnection, message)
+	w.onSendRepsonse(w._currentConnection, w._secured, message)
 	return nil
 }
 

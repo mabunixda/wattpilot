@@ -16,7 +16,9 @@ var propertyMap = map[string]string {
 	"power1": "nrg",
 	"power2": "nrg",
 	"power3": "nrg",
-	"allowCharging": "ast",
+	"power": "nrg",
+	"allowCharging": "alw",
+	"temp": "tma",
 }
 
 
@@ -32,6 +34,7 @@ var postProcess = map[string]PostFunction {
 	"power1": power1Process,
 	"power2": power2Process,
 	"power3": power3Process,
+	"power": powerProcess,
 }
 
 func voltage1Process(data interface{}) ( string, error ){
@@ -69,13 +72,14 @@ func power3Process(data interface{}) ( string, error ){
 func powerNProcess(data interface{}) ( string, error ){
 	return float2String(voltageData(data, 10) * 0.001), nil
 }
-
+func powerProcess(data interface{}) ( string, error ){
+	return float2String(voltageData(data, 11) * 0.001), nil
+}
 func voltageData(data interface{}, idx int) ( float64 ) {
 	vars := data.([]interface{})
 	v := vars[idx].(float64)
 	return v
 }
-
 func float2String(value float64) (string) {
 		return strconv.FormatFloat(value, 'f', 2, 64)
 }
