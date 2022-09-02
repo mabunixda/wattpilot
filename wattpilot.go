@@ -176,6 +176,15 @@ func (w *Wattpilot) onSendRepsonse(connection *websocket.Conn, secured bool, mes
 }
 
 func (w *Wattpilot) onEventResponse(connection *websocket.Conn, message map[string]interface{}) {
+	mType := message["type"].(string)
+	success, ok := message["success"]
+	if ok && success.(bool) {
+		return
+	}
+	if mType == "response" {
+		log.Println(message)
+		return
+	}
 }
 func (w *Wattpilot) onEventAuthSuccess(connection *websocket.Conn, message map[string]interface{}) {
 	log.Println("Connected!")
@@ -323,12 +332,36 @@ func (w *Wattpilot) SetProperty(name string, value interface{}) error {
 	w._status[name] = value
 	return nil
 }
+func (w *Wattpilot) transformValue(value interface{}) interface{} {
+
+	switch value.(type) {          // the switch uses the type of the interface
+    case int:
+        return value.(int)
+    case float64:
+        return value.(float64)
+    }
+	in_value := value.(string)
+	if out_value, err := strconv.Atoi(in_value); err == nil {
+		return out_value
+	}
+	if out_value, err := strconv.ParseBool(in_value); err == nil {
+		return out_value
+	}
+	if out_value, err := strconv.ParseFloat(in_value, 64); err == nil {
+		return out_value
+	}
+
+	return in_value
+}
+
 func (w *Wattpilot) sendUpdate(name string, value interface{}) error {
+
+
 	message := make(map[string]interface{})
 	message["type"] = "setValue"
 	message["requestId"] = w.getRequestId()
 	message["key"] = name
-	message["value"] = value
+	message["value"] = w.transformValue(value)
 	w.onSendRepsonse(w._currentConnection, w._secured, message)
 	return nil
 }
