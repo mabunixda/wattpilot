@@ -341,10 +341,12 @@ func (w *Wattpilot) transformValue(value interface{}) interface{} {
 	switch value.(type) {          // the switch uses the type of the interface
     case int:
         return value.(int)
+	case int64:
+		return value.(int64)
     case float64:
         return value.(float64)
     }
-	in_value := value.(string)
+	in_value := fmt.Sprintf("%v", value)
 	if out_value, err := strconv.Atoi(in_value); err == nil {
 		return out_value
 	}
