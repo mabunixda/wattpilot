@@ -3,38 +3,36 @@ import (
 	"strconv"
 )
 
-var propertyMap = map[string]string {
-	"carConnected": "car",
-	"mode": "lmo",
-	"voltage1": "nrg",
-	"voltage2": "nrg",
-	"voltage3": "nrg",
-	"voltageN": "nrg",
-	"amps1": "nrg",
-	"amps2": "nrg",
-	"amps3": "nrg",
-	"power1": "nrg",
-	"power2": "nrg",
-	"power3": "nrg",
-	"power": "nrg",
-	"allowCharging": "alw",
-	"temp": "tma",
-}
-
+// var propertyMap = map[string]string {
+// 	"voltage1": "nrg",
+// 	"voltage2": "nrg",
+// 	"voltage3": "nrg",
+// 	"voltageN": "nrg",
+// 	"amps1": "nrg",
+// 	"amps2": "nrg",
+// 	"amps3": "nrg",
+// 	"power1": "nrg",
+// 	"power2": "nrg",
+// 	"power3": "nrg",
+// 	"power": "nrg",
+// }
 
 type PostFunction func(interface{}) (string, error)
-var postProcess = map[string]PostFunction {
-	"voltage1": voltage1Process,
-	"voltage2": voltage2Process,
-	"voltage3": voltage3Process,
-	"voltageN": voltageNProcess,
-	"amps1": amps1Process,
-	"amps2": amps2Process,
-	"amps3": amps3Process,
-	"power1": power1Process,
-	"power2": power2Process,
-	"power3": power3Process,
-	"power": powerProcess,
+var postProcess = map[string] struct {
+	key string
+	f PostFunction
+} {
+	"voltage1": {"nrg", voltage1Process},
+	"voltage2": {"nrg",voltage2Process },
+	"voltage3": {"nrg",voltage3Process},
+	"voltageN": {"nrg",voltageNProcess},
+	"amps1": {"nrg",amps1Process},
+	"amps2": {"nrg",amps2Process},
+	"amps3": {"nrg",amps3Process},
+	"power1": {"nrg",power1Process},
+	"power2": {"nrg",power2Process},
+	"power3": {"nrg",power3Process},
+	"power": {"nrg",powerProcess},
 }
 
 func voltage1Process(data interface{}) ( string, error ){

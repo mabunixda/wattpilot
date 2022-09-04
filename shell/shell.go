@@ -16,6 +16,7 @@ var inputs = map[string]InputFunc {
 	"status": inStatus,
 	"get": inGetValue,
 	"set": inSetValue,
+	// "properties", inProperties,
 }
 
 func inStatus(w *api.Wattpilot, data []string) {
@@ -39,7 +40,16 @@ func inSetValue(w *api.Wattpilot, data []string) {
 	}
 	fmt.Println("error:",err)
 }
-
+// func inProperties(w *api.Wattpilot, data []string) {
+// 	for alias, key := range propertyMap {
+// 		value,_ := w.GetProperty(alias)
+// 		fmt.Printf("- %s: %s\n. %v\n", key, alias, value)
+// 	}
+// 	for alias, key := range postProcess {
+// 		value, _ := w.GetProperty(alias)
+// 		fmt.Printf("- %s: %s\n. %v", key.key, alias, value)
+// 	}
+// }
 func inConnect(w *api.Wattpilot, data []string) {
 	w.Connect()
 }

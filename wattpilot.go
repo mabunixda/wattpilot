@@ -308,12 +308,16 @@ func (w *Wattpilot) GetProperty(name string) (interface{}, error) {
 	if v, isKnown := propertyMap[name]; isKnown {
 		name = v
 	}
+	m, post := postProcess[origName];
+	if post {
+		name = m.key
+	}
 	if !hasKey(w._status, name) {
 		return nil, errors.New("Could not find " + name)
 	}
 	value := w._status[name]
-	if f, fOk := postProcess[origName]; fOk {
-		value, _ = f(value)
+	if post {
+		value, _ = m.f(value)
 	}
 	return value, nil
 }
