@@ -422,7 +422,7 @@ func (w *Wattpilot) StatusInfo() {
 	fmt.Println("")
 }
 
-func (w* Wattpilot) getPower() ( float64, error ) {
+func (w* Wattpilot) GetPower() ( float64, error ) {
 
 	v,err := w.GetProperty("power")
 	return v.(float64), err
