@@ -1,21 +1,21 @@
 package main
 
 import (
-	"os"
-	"fmt"
 	"bufio"
-	"log"
-	"strings"
+	"fmt"
 	"github.com/mabunixda/wattpilot"
+	"log"
+	"os"
+	"strings"
 )
 
-type InputFunc func(*api.Wattpilot,[]string)
+type InputFunc func(*api.Wattpilot, []string)
 
-var inputs = map[string]InputFunc {
+var inputs = map[string]InputFunc{
 	"connect": inConnect,
-	"status": inStatus,
-	"get": inGetValue,
-	"set": inSetValue,
+	"status":  inStatus,
+	"get":     inGetValue,
+	"set":     inSetValue,
 	// "properties", inProperties,
 }
 
@@ -26,8 +26,8 @@ func inStatus(w *api.Wattpilot, data []string) {
 }
 
 func inGetValue(w *api.Wattpilot, data []string) {
-	v, err :=w.GetProperty(data[0])
-	if(err != nil) {
+	v, err := w.GetProperty(data[0])
+	if err != nil {
 		fmt.Println(err)
 		return
 	}
@@ -35,24 +35,26 @@ func inGetValue(w *api.Wattpilot, data []string) {
 }
 func inSetValue(w *api.Wattpilot, data []string) {
 	err := w.SetProperty(data[0], data[1])
-	if(err == nil) {
+	if err == nil {
 		return
 	}
-	fmt.Println("error:",err)
+	fmt.Println("error:", err)
 }
-// func inProperties(w *api.Wattpilot, data []string) {
-// 	for alias, key := range propertyMap {
-// 		value,_ := w.GetProperty(alias)
-// 		fmt.Printf("- %s: %s\n. %v\n", key, alias, value)
-// 	}
-// 	for alias, key := range postProcess {
-// 		value, _ := w.GetProperty(alias)
-// 		fmt.Printf("- %s: %s\n. %v", key.key, alias, value)
-// 	}
-// }
+
+//	func inProperties(w *api.Wattpilot, data []string) {
+//		for alias, key := range propertyMap {
+//			value,_ := w.GetProperty(alias)
+//			fmt.Printf("- %s: %s\n. %v\n", key, alias, value)
+//		}
+//		for alias, key := range postProcess {
+//			value, _ := w.GetProperty(alias)
+//			fmt.Printf("- %s: %s\n. %v", key.key, alias, value)
+//		}
+//	}
 func inConnect(w *api.Wattpilot, data []string) {
 	w.Connect()
 }
+
 var interrupt chan os.Signal
 
 func main() {
@@ -91,10 +93,10 @@ func main() {
 			data := words[1:]
 			cmd := words[:1]
 			if _, fOk := inputs[cmd[0]]; !fOk {
-				fmt.Println("Could not find command",cmd[0])
+				fmt.Println("Could not find command", cmd[0])
 				continue
 			}
-			inputs[cmd[0]](w,data)
+			inputs[cmd[0]](w, data)
 			fmt.Println("")
 		}
 	}
