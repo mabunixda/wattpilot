@@ -423,10 +423,11 @@ func (w *Wattpilot) StatusInfo() {
 }
 
 func (w* Wattpilot) GetPower() ( float64, error ) {
-
 	v,err := w.GetProperty("power")
-	return v.(float64), err
-
+	if err != nil {
+		return -1, err
+	}
+	return v.(float64), nil
 }
 
 func (w* Wattpilot) GetCurrents() ( float64, float64, float64, error) {
