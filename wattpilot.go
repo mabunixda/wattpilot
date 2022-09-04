@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"github.com/gorilla/websocket"
 	"golang.org/x/crypto/pbkdf2"
-	"log"
 	"math/rand"
 	"os"
 	"os/signal"
@@ -41,7 +40,7 @@ type Wattpilot struct {
 
 	connected       chan bool
 	initialized     chan bool
-	sendResponse    chan bool
+	sendResponse    chan string
 }
 
 func NewWattpilot(host string, password string) *Wattpilot {
@@ -50,7 +49,7 @@ func NewWattpilot(host string, password string) *Wattpilot {
 		_password:      password,
 		connected:      make(chan bool),
 		initialized:    make(chan bool),
-		sendResponse:  make(chan string),
+		sendResponse:   make(chan string),
 		_isInitialized: false,
 		_requestId:     1,
 	}
@@ -69,7 +68,15 @@ func NewWattpilot(host string, password string) *Wattpilot {
 	return w
 
 }
-
+func (w *Wattpilot) getName() (string) {
+	return w._name
+}
+func (w *Wattpilot) getSerial() (string) {
+	return w._serial
+}
+func (w *Wattpilot) getHost() (string) {
+	return w._host
+}
 var done chan interface{}
 var interrupt chan os.Signal
 var src = rand.New(rand.NewSource(time.Now().UnixNano()))
@@ -122,8 +129,6 @@ func (w *Wattpilot) onEventHello(connection *websocket.Conn, message map[string]
 		w._secured = message["secured"].(bool)
 	}
 
-	log.Printf("Connected to WattPilot %s, Serial %s", w._name, w._serial)
-
 	pwd_data := pbkdf2.Key([]byte(w._password), []byte(w._serial), 100000, 256, sha512.New)
 	w._hashedpassword = base64.StdEncoding.EncodeToString([]byte(pwd_data))[:32]
 }
@@ -169,13 +174,13 @@ func (w *Wattpilot) onSendRepsonse(connection *websocket.Conn, secured bool, mes
 	}
 
 	data, _ := json.Marshal(message)
-	log.Println(string(data))
+
 	err := connection.WriteMessage(websocket.TextMessage, data)
 	if err != nil {
-		log.Println("Error during writing to websocket:", err)
 		return err
 	}
-	response <- w.sendResponse
+
+	response := <- w.sendResponse
 	if response == "" {
 		return nil
 	}
@@ -189,17 +194,14 @@ func (w *Wattpilot) onEventResponse(connection *websocket.Conn, message map[stri
 		return
 	}
 	if mType == "response" {
-		log.Println(message)
-		w.sendResponse <- message["message"]
+		w.sendResponse <- message["message"].(string)
 		return
 	}
 }
 func (w *Wattpilot) onEventAuthSuccess(connection *websocket.Conn, message map[string]interface{}) {
-	log.Println("Connected!")
 	w.connected <- true
 }
 func (w *Wattpilot) onEventAuthError(connection *websocket.Conn, message map[string]interface{}) {
-	log.Println("Authentication error")
 	w.connected <- false
 }
 func (w *Wattpilot) onEventFullStatus(connection *websocket.Conn, message map[string]interface{}) {
@@ -226,28 +228,31 @@ func (w *Wattpilot) onEventUpdateInverter(connection *websocket.Conn, message ma
 	// log.Println(message)
 }
 
-func (w *Wattpilot) Connect() {
+func (w *Wattpilot) Connect() (bool, error){
 	done = make(chan interface{})    // Channel to indicate that the receiverHandler is done
 	interrupt = make(chan os.Signal) // Channel to listen for interrupt signal to terminate gracefully
 
 	signal.Notify(interrupt, os.Interrupt) // Notify the interrupt channel for SIGINT
 
 	socketUrl := "ws://" + w._host + "/ws"
-	log.Println(socketUrl)
+
 	var err error
 	w._currentConnection, _, err = websocket.DefaultDialer.Dial(socketUrl, nil)
 	if err != nil {
-		log.Fatal("Error connecting to Websocket Server:", err)
+		return false, err;
 	}
 
 	go w.receiveHandler(w._currentConnection)
 	go w.loop(w._currentConnection)
 
-	<-w.connected
-
-	log.Println("Waiting for configuration...")
+	isConnected := <-w.connected
+	if !isConnected {
+		return false, errors.New("Could not connect")
+	}
 
 	<- w.initialized
+
+	return true, nil
 }
 
 func (w *Wattpilot) loop(conn *websocket.Conn) {
@@ -258,25 +263,24 @@ func (w *Wattpilot) loop(conn *websocket.Conn) {
 		    // Send an echo packet every second
 		    err := conn.WriteMessage(websocket.TextMessage, []byte(""))
 		    if err != nil {
-		        log.Println("Error during writing to websocket:", err)
-		        return
+				continue
 		    }
 
 		case <-interrupt:
 			// We received a SIGINT (Ctrl + C). Terminate gracefully...
-			log.Println("Received SIGINT interrupt signal. Closing all pending connections")
+			// log.Println("Received SIGINT interrupt signal. Closing all pending connections")
 			// Close our websocket connection
 			err := conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
 			if err != nil {
-				log.Println("Error during closing websocket:", err)
+				// log.Println("Error during closing websocket:", err)
 				return
 			}
 
 			select {
 			case <-done:
-				log.Println("Receiver Channel Closed! Exiting....")
+				// log.Println("Receiver Channel Closed! Exiting....")
 			case <-time.After(time.Duration(1) * time.Second):
-				log.Println("Timeout in closing receiving channel. Exiting....")
+				// log.Println("Timeout in closing receiving channel. Exiting....")
 			}
 			return
 		}
@@ -288,8 +292,7 @@ func (w *Wattpilot) receiveHandler(connection *websocket.Conn) {
 	for {
 		_, msg, err := connection.ReadMessage()
 		if err != nil {
-			log.Println("Error in receive:", err)
-			return
+			continue
 		}
 		// log.Printf("Received: %s\n", msg)
 		data := make(map[string]interface{})
