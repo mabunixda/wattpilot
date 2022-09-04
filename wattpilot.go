@@ -68,15 +68,19 @@ func NewWattpilot(host string, password string) *Wattpilot {
 	return w
 
 }
-func (w *Wattpilot) getName() (string) {
+func (w *Wattpilot) GetName() (string) {
 	return w._name
 }
-func (w *Wattpilot) getSerial() (string) {
+func (w *Wattpilot) GetSerial() (string) {
 	return w._serial
 }
-func (w *Wattpilot) getHost() (string) {
+func (w *Wattpilot) GetHost() (string) {
 	return w._host
 }
+func (w* Wattpilot) IsInitialized() (bool){
+	return w._isInitialized
+}
+
 var done chan interface{}
 var interrupt chan os.Signal
 var src = rand.New(rand.NewSource(time.Now().UnixNano()))
@@ -425,7 +429,7 @@ func (w* Wattpilot) getPower() ( float64, error ) {
 
 }
 
-func (w* Wattpilot) getCurrents() ( float64, float64, float64, error) {
+func (w* Wattpilot) GetCurrents() ( float64, float64, float64, error) {
 	var currents []float64
 	for _ , i := range []string{"amps1", "amps2", "amps3"} {
 		v, err := w.GetProperty(i)
@@ -442,7 +446,7 @@ func (w* Wattpilot) getCurrents() ( float64, float64, float64, error) {
 	return currents[0], currents[1], currents[2], nil
 }
 
-func (w* Wattpilot) setCurrent(current float64) error {
+func (w* Wattpilot) SetCurrent(current float64) error {
 	return w.SetProperty("amp", current)
 }
 
