@@ -52,8 +52,11 @@ func inSetValue(w *api.Wattpilot, data []string) {
 //		}
 //	}
 func inConnect(w *api.Wattpilot, data []string) {
-	w.Connect()
-	if !w.IsInitialized() {
+	connected, err := w.Connect()
+	if err != nil {
+		log.Println("Could not connect", err)
+	}
+	if !connected || !w.IsInitialized() {
 		return
 	}
 	log.Printf("Connected to WattPilot %s, Serial %s", w.GetName(), w.GetSerial())
@@ -64,7 +67,7 @@ var interrupt chan os.Signal
 func main() {
 
 	w := api.NewWattpilot(os.Getenv("WATTPILOT_HOST"), os.Getenv("WATTPILOT_PASSWORD"))
-	w.Connect()
+	inConnect(w, nil)
 
 	w.StatusInfo()
 
