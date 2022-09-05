@@ -14,8 +14,8 @@ import (
 	"math/rand"
 	"os"
 	"os/signal"
-	"time"
 	"strconv"
+	"time"
 )
 
 type Wattpilot struct {
@@ -38,9 +38,9 @@ type Wattpilot struct {
 	_status         map[string]interface{}
 	eventHandler    map[string]EventFunc
 
-	connected       chan bool
-	initialized     chan bool
-	sendResponse    chan string
+	connected    chan bool
+	initialized  chan bool
+	sendResponse chan string
 }
 
 func NewWattpilot(host string, password string) *Wattpilot {
@@ -68,16 +68,16 @@ func NewWattpilot(host string, password string) *Wattpilot {
 	return w
 
 }
-func (w *Wattpilot) GetName() (string) {
+func (w *Wattpilot) GetName() string {
 	return w._name
 }
-func (w *Wattpilot) GetSerial() (string) {
+func (w *Wattpilot) GetSerial() string {
 	return w._serial
 }
-func (w *Wattpilot) GetHost() (string) {
+func (w *Wattpilot) GetHost() string {
 	return w._host
 }
-func (w* Wattpilot) IsInitialized() (bool){
+func (w *Wattpilot) IsInitialized() bool {
 	return w._isInitialized
 }
 
@@ -165,11 +165,11 @@ func (w *Wattpilot) onEventAuthRequired(connection *websocket.Conn, message map[
 		w._isInitialized = false
 	}
 }
-func (w *Wattpilot) onSendRepsonse(connection *websocket.Conn, secured bool, message map[string]interface{}) (error) {
+func (w *Wattpilot) onSendRepsonse(connection *websocket.Conn, secured bool, message map[string]interface{}) error {
 
 	if secured {
 		msgId := message["requestId"].(int)
-		payload,_ := json.Marshal(message)
+		payload, _ := json.Marshal(message)
 
 		mac := hmac.New(sha256.New, []byte(w._hashedpassword))
 		mac.Write(payload)
@@ -230,7 +230,7 @@ func (w *Wattpilot) onEventUpdateInverter(connection *websocket.Conn, message ma
 	// log.Println(message)
 }
 
-func (w *Wattpilot) Connect() (bool, error){
+func (w *Wattpilot) Connect() (bool, error) {
 	done = make(chan interface{})    // Channel to indicate that the receiverHandler is done
 	interrupt = make(chan os.Signal) // Channel to listen for interrupt signal to terminate gracefully
 
@@ -241,7 +241,7 @@ func (w *Wattpilot) Connect() (bool, error){
 	var err error
 	w._currentConnection, _, err = websocket.DefaultDialer.Dial(socketUrl, nil)
 	if err != nil {
-		return false, err;
+		return false, err
 	}
 
 	go w.receiveHandler(w._currentConnection)
@@ -252,7 +252,7 @@ func (w *Wattpilot) Connect() (bool, error){
 		return false, errors.New("Could not connect")
 	}
 
-	<- w.initialized
+	<-w.initialized
 
 	return true, nil
 }
@@ -262,11 +262,11 @@ func (w *Wattpilot) loop(conn *websocket.Conn) {
 	for {
 		select {
 		case <-time.After(time.Duration(1) * time.Millisecond * 1000):
-		    // Send an echo packet every second
-		    err := conn.WriteMessage(websocket.TextMessage, []byte(""))
-		    if err != nil {
+			// Send an echo packet every second
+			err := conn.WriteMessage(websocket.TextMessage, []byte(""))
+			if err != nil {
 				continue
-		    }
+			}
 
 		case <-interrupt:
 			// We received a SIGINT (Ctrl + C). Terminate gracefully...
@@ -315,7 +315,6 @@ func (w *Wattpilot) receiveHandler(connection *websocket.Conn) {
 	}
 }
 
-
 func (w *Wattpilot) GetProperty(name string) (interface{}, error) {
 	if !w._isInitialized {
 		return nil, errors.New("Connection is not valid")
@@ -324,7 +323,7 @@ func (w *Wattpilot) GetProperty(name string) (interface{}, error) {
 	if v, isKnown := propertyMap[name]; isKnown {
 		name = v
 	}
-	m, post := postProcess[origName];
+	m, post := postProcess[origName]
 	if post {
 		name = m.key
 	}
@@ -356,13 +355,13 @@ func (w *Wattpilot) SetProperty(name string, value interface{}) error {
 func (w *Wattpilot) transformValue(value interface{}) interface{} {
 
 	switch value := value.(type) {
-    case int:
-        return value
+	case int:
+		return value
 	case int64:
 		return value
-    case float64:
-        return value
-    }
+	case float64:
+		return value
+	}
 	in_value := fmt.Sprintf("%v", value)
 	if out_value, err := strconv.Atoi(in_value); err == nil {
 		return out_value
@@ -379,7 +378,6 @@ func (w *Wattpilot) transformValue(value interface{}) interface{} {
 
 func (w *Wattpilot) sendUpdate(name string, value interface{}) error {
 
-
 	message := make(map[string]interface{})
 	message["type"] = "setValue"
 	message["requestId"] = w.getRequestId()
@@ -389,7 +387,7 @@ func (w *Wattpilot) sendUpdate(name string, value interface{}) error {
 
 }
 
-func (w *Wattpilot) Status() (map[string]interface{},error) {
+func (w *Wattpilot) Status() (map[string]interface{}, error) {
 	if !w._isInitialized {
 		return nil, errors.New("Connection is not initialzed")
 	}
@@ -399,49 +397,49 @@ func (w *Wattpilot) Status() (map[string]interface{},error) {
 
 func (w *Wattpilot) StatusInfo() {
 
-	fmt.Println("Wattpilot: " + w._name )
-	fmt.Println("Serial: " + w._serial )
+	fmt.Println("Wattpilot: " + w._name)
+	fmt.Println("Serial: " + w._serial)
 
 	fmt.Printf("Car Connected: %v\n", w._status["car"].(float64))
-    fmt.Printf("Charge Status %v\n", w._status["alw"].(bool) )
-    fmt.Printf("Mode: %v\n", w._status["lmo"].(float64) )
-    fmt.Printf("Power: %v\n\nCharge: ", w._status["amp"].(float64) )
+	fmt.Printf("Charge Status %v\n", w._status["alw"].(bool))
+	fmt.Printf("Mode: %v\n", w._status["lmo"].(float64))
+	fmt.Printf("Power: %v\n\nCharge: ", w._status["amp"].(float64))
 
-	for _ , i := range []string{"voltage1", "voltage2", "voltage2"} {
+	for _, i := range []string{"voltage1", "voltage2", "voltage2"} {
 		v, _ := w.GetProperty(i)
 		fmt.Printf("%v V, ", v)
 	}
 	fmt.Printf("\n\t")
-	for _ , i := range []string{"amps1", "amps2", "amps3"} {
+	for _, i := range []string{"amps1", "amps2", "amps3"} {
 		v, _ := w.GetProperty(i)
 		fmt.Printf("%v A, ", v)
 	}
 	fmt.Printf("\n\t")
-    	for _ , i := range []string{"power1", "power2", "power3"} {
+	for _, i := range []string{"power1", "power2", "power3"} {
 		v, _ := w.GetProperty(i)
 		fmt.Printf("%v W, ", v)
 	}
 	fmt.Println("")
 }
 
-func (w* Wattpilot) GetPower() ( float64, error ) {
-	v,err := w.GetProperty("power")
+func (w *Wattpilot) GetPower() (float64, error) {
+	v, err := w.GetProperty("power")
 	if err != nil {
 		return -1, err
 	}
 	return strconv.ParseFloat(v.(string), 64)
 }
 
-func (w* Wattpilot) GetCurrents() ( float64, float64, float64, error) {
+func (w *Wattpilot) GetCurrents() (float64, float64, float64, error) {
 	var currents []float64
-	for _ , i := range []string{"amps1", "amps2", "amps3"} {
+	for _, i := range []string{"amps1", "amps2", "amps3"} {
 		v, err := w.GetProperty(i)
 		if err != nil {
-			return -1,-1,-1, err
+			return -1, -1, -1, err
 		}
 		fi, err := strconv.ParseFloat(v.(string), 64)
 		if err != nil {
-			return -1,-1,-1, err
+			return -1, -1, -1, err
 		}
 
 		currents = append(currents, fi)
@@ -449,11 +447,11 @@ func (w* Wattpilot) GetCurrents() ( float64, float64, float64, error) {
 	return currents[0], currents[1], currents[2], nil
 }
 
-func (w* Wattpilot) SetCurrent(current float64) error {
+func (w *Wattpilot) SetCurrent(current float64) error {
 	return w.SetProperty("amp", current)
 }
 
-func (w* Wattpilot) GetRFID() (string, error ) {
+func (w *Wattpilot) GetRFID() (string, error) {
 	resp, err := w.GetProperty("cak")
 	if err != nil {
 		return "", err
