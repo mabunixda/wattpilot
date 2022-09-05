@@ -422,7 +422,7 @@ func (w* Wattpilot) GetPower() ( float64, error ) {
 	if err != nil {
 		return -1, err
 	}
-	return v.(float64), nil
+	return strconv.ParseFloat(v.(string), 64)
 }
 
 func (w* Wattpilot) GetCurrents() ( float64, float64, float64, error) {
