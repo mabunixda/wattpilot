@@ -355,15 +355,13 @@ func (w *Wattpilot) SetProperty(name string, value interface{}) error {
 
 func (w *Wattpilot) transformValue(value interface{}) interface{} {
 
-	switch value.(type) {
+	switch value := value.(type) {
     case int:
-        return value.(int)
+        return value
 	case int64:
-		return value.(int64)
+		return value
     case float64:
-        return value.(float64)
-	default:
-
+        return value
     }
 	in_value := fmt.Sprintf("%v", value)
 	if out_value, err := strconv.Atoi(in_value); err == nil {
