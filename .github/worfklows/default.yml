@@ -1,4 +1,4 @@
-name: CI
+name: Default
 on:
   push:
     branches:
@@ -9,9 +9,10 @@ on:
 
 jobs:
   build:
+    name: Build
     runs-on: ubuntu-latest
-    steps:
 
+    steps:
       - name: Set up Go
         uses: actions/setup-go@v2
         with:
@@ -29,7 +30,7 @@ jobs:
             ${{ runner.os }}-${{ matrix.go-version }}-go-
 
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: gofmt
         run: |
@@ -37,6 +38,13 @@ jobs:
 
       - name: Build
         run: make build
+
+      - name: Lint
+        uses: golangci/golangci-lint-action@v3
+        with:
+          version: latest
+          skip-pkg-cache: true
+          skip-build-cache: true
 
       - uses: go-semantic-release/action@v1
         id: semrel
