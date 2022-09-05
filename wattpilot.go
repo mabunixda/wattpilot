@@ -183,12 +183,7 @@ func (w *Wattpilot) onSendRepsonse(connection *websocket.Conn, secured bool, mes
 	if err != nil {
 		return err
 	}
-
-	response := <- w.sendResponse
-	if response == "" {
-		return nil
-	}
-	return errors.New(response)
+	return nil
 }
 
 func (w *Wattpilot) onEventResponse(connection *websocket.Conn, message map[string]interface{}) {
