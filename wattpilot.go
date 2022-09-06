@@ -9,14 +9,19 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/gorilla/websocket"
-	"golang.org/x/crypto/pbkdf2"
 	"math/rand"
 	"os"
 	"os/signal"
 	"strconv"
 	"time"
+
+	"github.com/gorilla/websocket"
+	"golang.org/x/crypto/pbkdf2"
 )
+
+var randomSource = rand.New(rand.NewSource(time.Now().UnixNano()))
+
+type EventFunc func(*websocket.Conn, map[string]interface{})
 
 type Wattpilot struct {
 	_currentConnection *websocket.Conn
@@ -41,6 +46,8 @@ type Wattpilot struct {
 	connected    chan bool
 	initialized  chan bool
 	sendResponse chan string
+	interrupt    chan os.Signal
+	done         chan interface{}
 }
 
 func NewWattpilot(host string, password string) *Wattpilot {
@@ -50,9 +57,13 @@ func NewWattpilot(host string, password string) *Wattpilot {
 		connected:      make(chan bool),
 		initialized:    make(chan bool),
 		sendResponse:   make(chan string),
+		done:           make(chan interface{}),
+		interrupt:      make(chan os.Signal),
 		_isInitialized: false,
 		_requestId:     1,
 	}
+
+	signal.Notify(w.interrupt, os.Interrupt) // Notify the interrupt channel for SIGINT
 
 	w.eventHandler = map[string]EventFunc{
 		"hello":          w.onEventHello,
@@ -80,12 +91,6 @@ func (w *Wattpilot) GetHost() string {
 func (w *Wattpilot) IsInitialized() bool {
 	return w._isInitialized
 }
-
-var done chan interface{}
-var interrupt chan os.Signal
-var src = rand.New(rand.NewSource(time.Now().UnixNano()))
-
-type EventFunc func(*websocket.Conn, map[string]interface{})
 
 func hasKey(data map[string]interface{}, key string) bool {
 	_, isKnown := data[key]
@@ -140,7 +145,7 @@ func (w *Wattpilot) onEventHello(connection *websocket.Conn, message map[string]
 func randomHexString(n int) string {
 	b := make([]byte, (n+2)/2) // can be simplified to n/2 if n is always even
 
-	if _, err := src.Read(b); err != nil {
+	if _, err := randomSource.Read(b); err != nil {
 		panic(err)
 	}
 
@@ -231,10 +236,6 @@ func (w *Wattpilot) onEventUpdateInverter(connection *websocket.Conn, message ma
 }
 
 func (w *Wattpilot) Connect() (bool, error) {
-	done = make(chan interface{})    // Channel to indicate that the receiverHandler is done
-	interrupt = make(chan os.Signal) // Channel to listen for interrupt signal to terminate gracefully
-
-	signal.Notify(interrupt, os.Interrupt) // Notify the interrupt channel for SIGINT
 
 	socketUrl := "ws://" + w._host + "/ws"
 
@@ -268,7 +269,7 @@ func (w *Wattpilot) loop(conn *websocket.Conn) {
 				continue
 			}
 
-		case <-interrupt:
+		case <-w.interrupt:
 			// We received a SIGINT (Ctrl + C). Terminate gracefully...
 			// log.Println("Received SIGINT interrupt signal. Closing all pending connections")
 			// Close our websocket connection
@@ -279,7 +280,7 @@ func (w *Wattpilot) loop(conn *websocket.Conn) {
 			}
 
 			select {
-			case <-done:
+			case <-w.done:
 				// log.Println("Receiver Channel Closed! Exiting....")
 			case <-time.After(time.Duration(1) * time.Second):
 				// log.Println("Timeout in closing receiving channel. Exiting....")
@@ -290,7 +291,7 @@ func (w *Wattpilot) loop(conn *websocket.Conn) {
 }
 
 func (w *Wattpilot) receiveHandler(connection *websocket.Conn) {
-	defer close(done)
+	defer close(w.done)
 	for {
 		_, msg, err := connection.ReadMessage()
 		if err != nil {
