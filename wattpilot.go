@@ -79,15 +79,19 @@ func NewWattpilot(host string, password string) *Wattpilot {
 	return w
 
 }
+
 func (w *Wattpilot) GetName() string {
 	return w._name
 }
+
 func (w *Wattpilot) GetSerial() string {
 	return w._serial
 }
+
 func (w *Wattpilot) GetHost() string {
 	return w._host
 }
+
 func (w *Wattpilot) IsInitialized() bool {
 	return w._isInitialized
 }
@@ -111,6 +115,7 @@ func sha256sum(data string) string {
 	bs := sha256.Sum256([]byte(data))
 	return fmt.Sprintf("%x", bs)
 }
+
 func (w *Wattpilot) getRequestId() int {
 	current := w._requestId
 	w._requestId += 1
@@ -170,6 +175,7 @@ func (w *Wattpilot) onEventAuthRequired(connection *websocket.Conn, message map[
 		w._isInitialized = false
 	}
 }
+
 func (w *Wattpilot) onSendRepsonse(connection *websocket.Conn, secured bool, message map[string]interface{}) error {
 
 	if secured {
@@ -205,12 +211,15 @@ func (w *Wattpilot) onEventResponse(connection *websocket.Conn, message map[stri
 		return
 	}
 }
+
 func (w *Wattpilot) onEventAuthSuccess(connection *websocket.Conn, message map[string]interface{}) {
 	w.connected <- true
 }
+
 func (w *Wattpilot) onEventAuthError(connection *websocket.Conn, message map[string]interface{}) {
 	w.connected <- false
 }
+
 func (w *Wattpilot) onEventFullStatus(connection *websocket.Conn, message map[string]interface{}) {
 
 	isPartial := message["partial"].(bool)
@@ -337,6 +346,7 @@ func (w *Wattpilot) GetProperty(name string) (interface{}, error) {
 	}
 	return value, nil
 }
+
 func (w *Wattpilot) SetProperty(name string, value interface{}) error {
 	if !w._isInitialized {
 		return errors.New("Connection is not valid")
