@@ -1,3 +1,17 @@
+<a name="v1.0.2"></a>
+# [v1.0.2](https://github.com/mabunixda/wattpilot/releases/tag/v1.0.2) - 09 Sep 2022
+
+## 1.0.2 (2022-09-09)
+
+#### Bug Fixes
+
+* auto-reconnect based on flag, default is on (#5) (1cb0167a)
+
+
+
+[Changes][v1.0.2]
+
+
 <a name="v1.0.1"></a>
 # [v1.0.1](https://github.com/mabunixda/wattpilot/releases/tag/v1.0.1) - 06 Sep 2022
 
@@ -26,6 +40,7 @@
 [Changes][v1.0.0]
 
 
+[v1.0.2]: https://github.com/mabunixda/wattpilot/compare/v1.0.1...v1.0.2
 [v1.0.1]: https://github.com/mabunixda/wattpilot/compare/v1.0.0...v1.0.1
 [v1.0.0]: https://github.com/mabunixda/wattpilot/tree/v1.0.0
 
