@@ -19,6 +19,10 @@ import (
 	"golang.org/x/crypto/pbkdf2"
 )
 
+const (
+	MAX_RECONNECT_RETRIES = 5
+)
+
 var randomSource = rand.New(rand.NewSource(time.Now().UnixNano()))
 
 type EventFunc func(*websocket.Conn, map[string]interface{})
@@ -309,8 +313,18 @@ func (w *Wattpilot) receiveHandler(connection *websocket.Conn) {
 		_, msg, err := connection.ReadMessage()
 		if err != nil {
 			if w.Reconnect {
-				time.Sleep(time.Second * time.Duration(w._reconnectTimeout))
-				go w.Connect()
+				reConnectLoop := 0
+				for {
+					time.Sleep(time.Second * time.Duration(w._reconnectTimeout))
+					isConnected, _ := w.Connect()
+					if isConnected {
+						break
+					}
+					reConnectLoop += 1
+					if reConnectLoop > MAX_RECONNECT_RETRIES {
+						break
+					}
+				}
 			}
 			break
 		}
