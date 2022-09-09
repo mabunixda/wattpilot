@@ -3,10 +3,11 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"github.com/mabunixda/wattpilot"
 	"log"
 	"os"
 	"strings"
+
+	api "github.com/mabunixda/wattpilot"
 )
 
 type InputFunc func(*api.Wattpilot, []string)
@@ -65,8 +66,12 @@ func inConnect(w *api.Wattpilot, data []string) {
 var interrupt chan os.Signal
 
 func main() {
-
-	w := api.NewWattpilot(os.Getenv("WATTPILOT_HOST"), os.Getenv("WATTPILOT_PASSWORD"))
+	host := os.Getenv("WATTPILOT_HOST")
+	pwd := os.Getenv("WATTPILOT_PASSWORD")
+	if host == "" || pwd == "" {
+		return
+	}
+	w := api.NewWattpilot(host, pwd)
 	inConnect(w, nil)
 
 	w.StatusInfo()

@@ -34,14 +34,16 @@ type Wattpilot struct {
 	_devicetype        string
 	_protocol          float64
 	_secured           bool
+	Reconnect          bool
 
-	_token3         string
-	_hashedpassword string
-	_host           string
-	_password       string
-	_isInitialized  bool
-	_status         map[string]interface{}
-	eventHandler    map[string]EventFunc
+	_token3           string
+	_hashedpassword   string
+	_host             string
+	_password         string
+	_isInitialized    bool
+	_status           map[string]interface{}
+	_reconnectTimeout int64
+	eventHandler      map[string]EventFunc
 
 	connected    chan bool
 	initialized  chan bool
@@ -52,15 +54,17 @@ type Wattpilot struct {
 
 func NewWattpilot(host string, password string) *Wattpilot {
 	w := &Wattpilot{
-		_host:          host,
-		_password:      password,
-		connected:      make(chan bool),
-		initialized:    make(chan bool),
-		sendResponse:   make(chan string),
-		done:           make(chan interface{}),
-		interrupt:      make(chan os.Signal),
-		_isInitialized: false,
-		_requestId:     1,
+		_host:             host,
+		_password:         password,
+		Reconnect:         true,
+		connected:         make(chan bool),
+		initialized:       make(chan bool),
+		sendResponse:      make(chan string),
+		done:              make(chan interface{}),
+		interrupt:         make(chan os.Signal),
+		_isInitialized:    false,
+		_requestId:        1,
+		_reconnectTimeout: 2,
 	}
 
 	signal.Notify(w.interrupt, os.Interrupt) // Notify the interrupt channel for SIGINT
@@ -259,7 +263,7 @@ func (w *Wattpilot) Connect() (bool, error) {
 
 	isConnected := <-w.connected
 	if !isConnected {
-		return false, errors.New("Could not connect")
+		return false, errors.New("could not connect")
 	}
 
 	<-w.initialized
@@ -304,7 +308,11 @@ func (w *Wattpilot) receiveHandler(connection *websocket.Conn) {
 	for {
 		_, msg, err := connection.ReadMessage()
 		if err != nil {
-			continue
+			if w.Reconnect {
+				time.Sleep(time.Second * time.Duration(w._reconnectTimeout))
+				go w.Connect()
+			}
+			break
 		}
 		// log.Printf("Received: %s\n", msg)
 		data := make(map[string]interface{})
@@ -327,7 +335,7 @@ func (w *Wattpilot) receiveHandler(connection *websocket.Conn) {
 
 func (w *Wattpilot) GetProperty(name string) (interface{}, error) {
 	if !w._isInitialized {
-		return nil, errors.New("Connection is not valid")
+		return nil, errors.New("connection is not valid")
 	}
 	origName := name
 	if v, isKnown := propertyMap[name]; isKnown {
@@ -400,7 +408,7 @@ func (w *Wattpilot) sendUpdate(name string, value interface{}) error {
 
 func (w *Wattpilot) Status() (map[string]interface{}, error) {
 	if !w._isInitialized {
-		return nil, errors.New("Connection is not initialzed")
+		return nil, errors.New("connection is not initialzed")
 	}
 
 	return w._status, nil
