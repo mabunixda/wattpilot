@@ -1,22 +1,8 @@
-package api
+package wattpilot
 
 import (
 	"strconv"
 )
-
-// var propertyMap = map[string]string {
-// 	"voltage1": "nrg",
-// 	"voltage2": "nrg",
-// 	"voltage3": "nrg",
-// 	"voltageN": "nrg",
-// 	"amps1": "nrg",
-// 	"amps2": "nrg",
-// 	"amps3": "nrg",
-// 	"power1": "nrg",
-// 	"power2": "nrg",
-// 	"power3": "nrg",
-// 	"power": "nrg",
-// }
 
 type PostFunction func(interface{}) (string, error)
 
