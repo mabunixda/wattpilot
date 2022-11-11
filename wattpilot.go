@@ -433,12 +433,12 @@ func (w *Wattpilot) Status() (map[string]interface{}, error) {
 func (w *Wattpilot) StatusInfo() {
 
 	fmt.Println("Wattpilot: " + w._name)
-	fmt.Println("Serial: " + w._serial)
+	fmt.Println("Serial: ", w._serial)
 
-	fmt.Printf("Car Connected: %v\n", w._status["car"].(float64))
-	fmt.Printf("Charge Status %v\n", w._status["alw"].(bool))
-	fmt.Printf("Mode: %v\n", w._status["lmo"].(float64))
-	fmt.Printf("Power: %v\n\nCharge: ", w._status["amp"].(float64))
+	fmt.Printf("Car Connected: %v\n", w._status["car"])
+	fmt.Printf("Charge Status %v\n", w._status["alw"])
+	fmt.Printf("Mode: %v\n", w._status["lmo"])
+	fmt.Printf("Power: %v\n\nCharge: ", w._status["amp"])
 
 	for _, i := range []string{"voltage1", "voltage2", "voltage2"} {
 		v, _ := w.GetProperty(i)
