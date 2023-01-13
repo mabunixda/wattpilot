@@ -1,3 +1,31 @@
+<a name="v1.0.4"></a>
+# [v1.0.4](https://github.com/mabunixda/wattpilot/releases/tag/v1.0.4) - 13 Jan 2023
+
+## 1.0.4 (2023-01-13)
+
+#### Bug Fixes
+
+* cleanup code (#8) (75161384)
+
+
+
+[Changes][v1.0.4]
+
+
+<a name="v1.0.3"></a>
+# [v1.0.3](https://github.com/mabunixda/wattpilot/releases/tag/v1.0.3) - 11 Nov 2022
+
+## 1.0.3 (2022-11-11)
+
+#### Bug Fixes
+
+* adapted mapping (#7) (da897786)
+
+
+
+[Changes][v1.0.3]
+
+
 <a name="v1.0.2"></a>
 # [v1.0.2](https://github.com/mabunixda/wattpilot/releases/tag/v1.0.2) - 09 Sep 2022
 
@@ -40,6 +68,8 @@
 [Changes][v1.0.0]
 
 
+[v1.0.4]: https://github.com/mabunixda/wattpilot/compare/v1.0.3...v1.0.4
+[v1.0.3]: https://github.com/mabunixda/wattpilot/compare/v1.0.2...v1.0.3
 [v1.0.2]: https://github.com/mabunixda/wattpilot/compare/v1.0.1...v1.0.2
 [v1.0.1]: https://github.com/mabunixda/wattpilot/compare/v1.0.0...v1.0.1
 [v1.0.0]: https://github.com/mabunixda/wattpilot/tree/v1.0.0
