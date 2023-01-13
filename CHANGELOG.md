@@ -1,3 +1,17 @@
+<a name="v1.0.5"></a>
+# [v1.0.5](https://github.com/mabunixda/wattpilot/releases/tag/v1.0.5) - 13 Jan 2023
+
+## 1.0.5 (2023-01-13)
+
+#### Bug Fixes
+
+* adding license (3c43d35e)
+
+
+
+[Changes][v1.0.5]
+
+
 <a name="v1.0.4"></a>
 # [v1.0.4](https://github.com/mabunixda/wattpilot/releases/tag/v1.0.4) - 13 Jan 2023
 
@@ -68,6 +82,7 @@
 [Changes][v1.0.0]
 
 
+[v1.0.5]: https://github.com/mabunixda/wattpilot/compare/v1.0.4...v1.0.5
 [v1.0.4]: https://github.com/mabunixda/wattpilot/compare/v1.0.3...v1.0.4
 [v1.0.3]: https://github.com/mabunixda/wattpilot/compare/v1.0.2...v1.0.3
 [v1.0.2]: https://github.com/mabunixda/wattpilot/compare/v1.0.1...v1.0.2
