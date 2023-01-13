@@ -27,7 +27,7 @@ const (
 
 var randomSource = rand.New(rand.NewSource(time.Now().UnixNano()))
 
-type EventFunc func(*websocket.Conn, map[string]interface{})
+type EventFunc func(map[string]interface{})
 
 type Wattpilot struct {
 	_currentConnection *websocket.Conn
@@ -132,7 +132,7 @@ func (w *Wattpilot) getRequestId() int {
 	return current
 }
 
-func (w *Wattpilot) onEventHello(connection *websocket.Conn, message map[string]interface{}) {
+func (w *Wattpilot) onEventHello(message map[string]interface{}) {
 
 	if hasKey(message, "hostname") {
 		w._hostname = message["hostname"].(string)
@@ -167,7 +167,7 @@ func randomHexString(n int) string {
 	return hex.EncodeToString(b)[1 : n+1]
 }
 
-func (w *Wattpilot) onEventAuthRequired(connection *websocket.Conn, message map[string]interface{}) {
+func (w *Wattpilot) onEventAuthRequired(message map[string]interface{}) {
 
 	token1 := message["token1"].(string)
 	token2 := message["token2"].(string)
@@ -180,13 +180,13 @@ func (w *Wattpilot) onEventAuthRequired(connection *websocket.Conn, message map[
 		"token3": w._token3,
 		"hash":   hash,
 	}
-	err := w.onSendRepsonse(connection, false, response)
+	err := w.onSendRepsonse(false, response)
 	if err != nil {
 		w._isInitialized = false
 	}
 }
 
-func (w *Wattpilot) onSendRepsonse(connection *websocket.Conn, secured bool, message map[string]interface{}) error {
+func (w *Wattpilot) onSendRepsonse(secured bool, message map[string]interface{}) error {
 
 	if secured {
 		msgId := message["requestId"].(int)
@@ -203,14 +203,14 @@ func (w *Wattpilot) onSendRepsonse(connection *websocket.Conn, secured bool, mes
 
 	data, _ := json.Marshal(message)
 
-	err := connection.WriteMessage(websocket.TextMessage, data)
+	err := w._currentConnection.WriteMessage(websocket.TextMessage, data)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (w *Wattpilot) onEventResponse(connection *websocket.Conn, message map[string]interface{}) {
+func (w *Wattpilot) onEventResponse(message map[string]interface{}) {
 	mType := message["type"].(string)
 	success, ok := message["success"]
 	if ok && success.(bool) {
@@ -222,15 +222,15 @@ func (w *Wattpilot) onEventResponse(connection *websocket.Conn, message map[stri
 	}
 }
 
-func (w *Wattpilot) onEventAuthSuccess(connection *websocket.Conn, message map[string]interface{}) {
+func (w *Wattpilot) onEventAuthSuccess(message map[string]interface{}) {
 	w.connected <- true
 }
 
-func (w *Wattpilot) onEventAuthError(connection *websocket.Conn, message map[string]interface{}) {
+func (w *Wattpilot) onEventAuthError(message map[string]interface{}) {
 	w.connected <- false
 }
 
-func (w *Wattpilot) onEventFullStatus(connection *websocket.Conn, message map[string]interface{}) {
+func (w *Wattpilot) onEventFullStatus(message map[string]interface{}) {
 
 	isPartial := message["partial"].(bool)
 	status := message["status"].(map[string]interface{})
@@ -243,14 +243,14 @@ func (w *Wattpilot) onEventFullStatus(connection *websocket.Conn, message map[st
 	w.initialized <- true
 	w._isInitialized = true
 }
-func (w *Wattpilot) onEventDeltaStatus(connection *websocket.Conn, message map[string]interface{}) {
+func (w *Wattpilot) onEventDeltaStatus(message map[string]interface{}) {
 	status := message["status"].(map[string]interface{})
 	w._status = merge(w._status, status)
 }
-func (w *Wattpilot) onEventClearInverters(connection *websocket.Conn, message map[string]interface{}) {
+func (w *Wattpilot) onEventClearInverters(message map[string]interface{}) {
 	// log.Println(message)
 }
-func (w *Wattpilot) onEventUpdateInverter(connection *websocket.Conn, message map[string]interface{}) {
+func (w *Wattpilot) onEventUpdateInverter(message map[string]interface{}) {
 	// log.Println(message)
 }
 
@@ -264,8 +264,8 @@ func (w *Wattpilot) Connect() (bool, error) {
 		return false, err
 	}
 
-	go w.receiveHandler(w._currentConnection)
-	go w.loop(w._currentConnection)
+	go w.receiveHandler()
+	go w.loop()
 
 	isConnected := <-w.connected
 	if !isConnected {
@@ -277,24 +277,35 @@ func (w *Wattpilot) Connect() (bool, error) {
 	return true, nil
 }
 
-func (w *Wattpilot) loop(conn *websocket.Conn) {
+func (w *Wattpilot) reconnect() {
+	reConnectLoop := 0
+	for {
+		time.Sleep(time.Second * time.Duration(w._reconnectTimeout))
+		isConnected, _ := w.Connect()
+		if isConnected {
+			return
+		}
+		reConnectLoop += 1
+		if reConnectLoop > MAX_RECONNECT_RETRIES {
+			return
+		}
+	}
+}
+
+func (w *Wattpilot) loop() {
 
 	for {
 		select {
 		case <-time.After(time.Duration(1) * time.Millisecond * 1000):
 			// Send an echo packet every second
-			err := conn.WriteMessage(websocket.TextMessage, []byte(""))
+			err := w._currentConnection.WriteMessage(websocket.TextMessage, []byte(""))
 			if err != nil {
 				continue
 			}
 
 		case <-w.interrupt:
-			// We received a SIGINT (Ctrl + C). Terminate gracefully...
-			// log.Println("Received SIGINT interrupt signal. Closing all pending connections")
-			// Close our websocket connection
-			err := conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+			err := w._currentConnection.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
 			if err != nil {
-				// log.Println("Error during closing websocket:", err)
 				return
 			}
 
@@ -309,24 +320,13 @@ func (w *Wattpilot) loop(conn *websocket.Conn) {
 	}
 }
 
-func (w *Wattpilot) receiveHandler(connection *websocket.Conn) {
+func (w *Wattpilot) receiveHandler() {
 	defer close(w.done)
 	for {
-		_, msg, err := connection.ReadMessage()
+		_, msg, err := w._currentConnection.ReadMessage()
 		if err != nil {
 			if w.Reconnect {
-				reConnectLoop := 0
-				for {
-					time.Sleep(time.Second * time.Duration(w._reconnectTimeout))
-					isConnected, _ := w.Connect()
-					if isConnected {
-						break
-					}
-					reConnectLoop += 1
-					if reConnectLoop > MAX_RECONNECT_RETRIES {
-						break
-					}
-				}
+				go w.reconnect()
 			}
 			break
 		}
@@ -345,7 +345,7 @@ func (w *Wattpilot) receiveHandler(connection *websocket.Conn) {
 			continue
 		}
 		// log.Printf("Calling " + msgType.(string))
-		funcCall(connection, data)
+		funcCall(data)
 	}
 }
 
@@ -418,7 +418,7 @@ func (w *Wattpilot) sendUpdate(name string, value interface{}) error {
 	message["requestId"] = w.getRequestId()
 	message["key"] = name
 	message["value"] = w.transformValue(value)
-	return w.onSendRepsonse(w._currentConnection, w._secured, message)
+	return w.onSendRepsonse(w._secured, message)
 
 }
 

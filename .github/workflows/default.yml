@@ -32,9 +32,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
 
-      - name: gofmt
-        run: |
-          gofmt -w -l $(find . -name '*.go')
+      - uses: pre-commit/action@v3.0.0
 
       - name: Build
         run: make build
