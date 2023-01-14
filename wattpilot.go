@@ -440,16 +440,14 @@ func (w *Wattpilot) StatusInfo() {
 	fmt.Printf("Mode: %v\n", w._status["lmo"])
 	fmt.Printf("Power: %v\n\nCharge: ", w._status["amp"])
 
-	for _, i := range []string{"voltage1", "voltage2", "voltage2"} {
-		v, _ := w.GetProperty(i)
-		fmt.Printf("%v V, ", v)
-	}
+	v1, v2, v3, _ := w.GetVoltages()
+	fmt.Printf("%v V, %v V, %v V", v1, v2, v3)
 	fmt.Printf("\n\t")
-	for _, i := range []string{"amps1", "amps2", "amps3"} {
-		v, _ := w.GetProperty(i)
-		fmt.Printf("%v A, ", v)
-	}
+
+	i1, i2, i3, _ := w.GetCurrents()
+	fmt.Printf("%v A, %v A, %v A", i1, i2, i3)
 	fmt.Printf("\n\t")
+
 	for _, i := range []string{"power1", "power2", "power3"} {
 		v, _ := w.GetProperty(i)
 		fmt.Printf("%v W, ", v)
@@ -480,6 +478,23 @@ func (w *Wattpilot) GetCurrents() (float64, float64, float64, error) {
 		currents = append(currents, fi)
 	}
 	return currents[0], currents[1], currents[2], nil
+}
+
+func (w *Wattpilot) GetVoltages() (float64, float64, float64, error) {
+	var voltages []float64
+	for _, i := range []string{"voltage1", "voltage2", "voltage2"} {
+		v, err := w.GetProperty(i)
+		if err != nil {
+			return -1, -1, -1, err
+		}
+		fi, err := strconv.ParseFloat(v.(string), 64)
+		if err != nil {
+			return -1, -1, -1, err
+		}
+
+		voltages = append(voltages, fi)
+	}
+	return voltages[0], voltages[1], voltages[2], nil
 }
 
 func (w *Wattpilot) SetCurrent(current float64) error {
