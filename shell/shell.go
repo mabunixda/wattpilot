@@ -71,7 +71,7 @@ func main() {
 	if host == "" || pwd == "" {
 		return
 	}
-	w := api.NewWattpilot(host, pwd)
+	w := api.New(host, pwd)
 	inConnect(w, nil)
 
 	w.StatusInfo()

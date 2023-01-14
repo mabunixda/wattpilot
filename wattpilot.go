@@ -58,7 +58,7 @@ type Wattpilot struct {
 	done         chan interface{}
 }
 
-func NewWattpilot(host string, password string) *Wattpilot {
+func New(host string, password string) *Wattpilot {
 	w := &Wattpilot{
 		_host:             host,
 		_password:         password,
