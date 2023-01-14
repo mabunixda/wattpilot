@@ -1,3 +1,17 @@
+<a name="v1.1.0"></a>
+# [v1.1.0](https://github.com/mabunixda/wattpilot/releases/tag/v1.1.0) - 14 Jan 2023
+
+## 1.1.0 (2023-01-14)
+
+#### Feature
+
+* error wording and correcting versioning (84bbbed0)
+
+
+
+[Changes][v1.1.0]
+
+
 <a name="v1.0.6"></a>
 # [v1.0.6](https://github.com/mabunixda/wattpilot/releases/tag/v1.0.6) - 14 Jan 2023
 
@@ -96,6 +110,7 @@
 [Changes][v1.0.0]
 
 
+[v1.1.0]: https://github.com/mabunixda/wattpilot/compare/v1.0.6...v1.1.0
 [v1.0.6]: https://github.com/mabunixda/wattpilot/compare/v1.0.5...v1.0.6
 [v1.0.5]: https://github.com/mabunixda/wattpilot/compare/v1.0.4...v1.0.5
 [v1.0.4]: https://github.com/mabunixda/wattpilot/compare/v1.0.3...v1.0.4
