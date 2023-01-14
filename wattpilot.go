@@ -362,7 +362,7 @@ func (w *Wattpilot) GetProperty(name string) (interface{}, error) {
 		name = m.key
 	}
 	if !hasKey(w._status, name) {
-		return nil, errors.New("Could not find " + name)
+		return nil, errors.New("could not find " + name)
 	}
 	value := w._status[name]
 	if post {
@@ -373,10 +373,10 @@ func (w *Wattpilot) GetProperty(name string) (interface{}, error) {
 
 func (w *Wattpilot) SetProperty(name string, value interface{}) error {
 	if !w._isInitialized {
-		return errors.New("Connection is not valid")
+		return errors.New("connection is not valid")
 	}
 	if !hasKey(w._status, name) {
-		return errors.New("Could not find " + name)
+		return errors.New("could not find " + name)
 	}
 
 	err := w.sendUpdate(name, value)
