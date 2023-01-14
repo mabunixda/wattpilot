@@ -1,3 +1,17 @@
+<a name="v1.1.1"></a>
+# [v1.1.1](https://github.com/mabunixda/wattpilot/releases/tag/v1.1.1) - 14 Jan 2023
+
+## 1.1.1 (2023-01-14)
+
+#### Bug Fixes
+
+* adapt wattpilot interface (10d01c38)
+
+
+
+[Changes][v1.1.1]
+
+
 <a name="v1.1.0"></a>
 # [v1.1.0](https://github.com/mabunixda/wattpilot/releases/tag/v1.1.0) - 14 Jan 2023
 
@@ -110,6 +124,7 @@
 [Changes][v1.0.0]
 
 
+[v1.1.1]: https://github.com/mabunixda/wattpilot/compare/v1.1.0...v1.1.1
 [v1.1.0]: https://github.com/mabunixda/wattpilot/compare/v1.0.6...v1.1.0
 [v1.0.6]: https://github.com/mabunixda/wattpilot/compare/v1.0.5...v1.0.6
 [v1.0.5]: https://github.com/mabunixda/wattpilot/compare/v1.0.4...v1.0.5
