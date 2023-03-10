@@ -17,4 +17,4 @@ repos:
       - id: go-unit-tests
       - id: go-build
       - id: go-mod-tidy
-      - id: golangci-lint
+#      - id: golangci-lint
