@@ -111,14 +111,14 @@ func (w *Wattpilot) IsInitialized() bool {
 
 func (w *Wattpilot) Properties() []string {
 	keys := []string{}
-	for k, _ := range w._status {
+	for k := range w._status {
 		keys = append(keys, k)
 	}
 	return keys
 }
 func (w *Wattpilot) Alias() []string {
 	keys := []string{}
-	for k, _ := range propertyMap {
+	for k := range propertyMap {
 		keys = append(keys, k)
 	}
 	return keys

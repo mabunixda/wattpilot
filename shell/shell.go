@@ -61,17 +61,24 @@ func dumpData(w *api.Wattpilot, data []string) {
 	}
 	keys := w.Properties()
 	writer := csv.NewWriter(csvFile)
-	writer.Write(keys)
+	if err := writer.Write(keys); err != nil {
+		log.Fatalln("Could not create csv file dump")
+		return
+	}
 	dataSet := []string{}
 	for idx := 0; idx < len(keys); idx += 1 {
 		alias := keys[idx]
 		value, _ := w.GetProperty(alias)
 		dataSet = append(dataSet, fmt.Sprint(value))
 	}
-	writer.Write(dataSet)
+	if err := writer.Write(dataSet); err != nil {
+		log.Fatalln("error writing csv-data:", err)
+		return
+	}
 	writer.Flush()
 	if err := writer.Error(); err != nil {
 		log.Fatalln("error writing csv:", err)
+		return
 	}
 	log.Println("export written to `wattpilot-data.csv`")
 }
