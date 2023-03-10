@@ -56,6 +56,8 @@ type Wattpilot struct {
 	sendResponse chan string
 	interrupt    chan os.Signal
 	done         chan interface{}
+
+	Updated chan interface{}
 }
 
 func New(host string, password string) *Wattpilot {
@@ -68,6 +70,7 @@ func New(host string, password string) *Wattpilot {
 		sendResponse:      make(chan string),
 		done:              make(chan interface{}),
 		interrupt:         make(chan os.Signal),
+		Updated:           make(chan interface{}),
 		_isInitialized:    false,
 		_requestId:        1,
 		_reconnectTimeout: 2,
@@ -104,6 +107,24 @@ func (w *Wattpilot) GetHost() string {
 
 func (w *Wattpilot) IsInitialized() bool {
 	return w._isInitialized
+}
+
+func (w *Wattpilot) Properties() []string {
+	keys := []string{}
+	for k, _ := range w._status {
+		keys = append(keys, k)
+	}
+	return keys
+}
+func (w *Wattpilot) Alias() []string {
+	keys := []string{}
+	for k, _ := range propertyMap {
+		keys = append(keys, k)
+	}
+	return keys
+}
+func (w *Wattpilot) LookupAlias(name string) string {
+	return propertyMap[name]
 }
 
 func hasKey(data map[string]interface{}, key string) bool {
@@ -237,6 +258,8 @@ func (w *Wattpilot) onEventFullStatus(message map[string]interface{}) {
 
 	w._status = merge(w._status, status)
 
+	//w.Updated = <-status
+
 	if isPartial {
 		return
 	}
@@ -246,6 +269,7 @@ func (w *Wattpilot) onEventFullStatus(message map[string]interface{}) {
 func (w *Wattpilot) onEventDeltaStatus(message map[string]interface{}) {
 	status := message["status"].(map[string]interface{})
 	w._status = merge(w._status, status)
+	// w.Updated <- status
 }
 func (w *Wattpilot) onEventClearInverters(message map[string]interface{}) {
 	// log.Println(message)
@@ -321,7 +345,7 @@ func (w *Wattpilot) loop() {
 }
 
 func (w *Wattpilot) receiveHandler() {
-	defer close(w.done)
+
 	for {
 		_, msg, err := w._currentConnection.ReadMessage()
 		if err != nil {
