@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"encoding/csv"
 	"fmt"
 	"log"
 	"os"
@@ -13,11 +14,12 @@ import (
 type InputFunc func(*api.Wattpilot, []string)
 
 var inputs = map[string]InputFunc{
-	"connect": inConnect,
-	"status":  inStatus,
-	"get":     inGetValue,
-	"set":     inSetValue,
-	// "properties", inProperties,
+	"connect":    inConnect,
+	"status":     inStatus,
+	"get":        inGetValue,
+	"set":        inSetValue,
+	"properties": inProperties,
+	"dataDump":   dumpData,
 }
 
 func inStatus(w *api.Wattpilot, data []string) {
@@ -42,16 +44,45 @@ func inSetValue(w *api.Wattpilot, data []string) {
 	fmt.Println("error:", err)
 }
 
-//	func inProperties(w *api.Wattpilot, data []string) {
-//		for alias, key := range propertyMap {
-//			value,_ := w.GetProperty(alias)
-//			fmt.Printf("- %s: %s\n. %v\n", key, alias, value)
-//		}
-//		for alias, key := range postProcess {
-//			value, _ := w.GetProperty(alias)
-//			fmt.Printf("- %s: %s\n. %v", key.key, alias, value)
-//		}
-//	}
+func inProperties(w *api.Wattpilot, data []string) {
+	keys := w.Alias()
+	for idx := 0; idx < len(keys); idx += 1 {
+		alias := keys[idx]
+		raw := w.LookupAlias(alias)
+		value, _ := w.GetProperty(alias)
+		fmt.Printf("- %s: %s\n  %v\n", alias, raw, value)
+	}
+}
+
+func dumpData(w *api.Wattpilot, data []string) {
+	csvFile, e := os.Create("./wattpilot-data.csv")
+	if e != nil {
+		fmt.Println(e)
+	}
+	keys := w.Properties()
+	writer := csv.NewWriter(csvFile)
+	if err := writer.Write(keys); err != nil {
+		log.Fatalln("Could not create csv file dump")
+		return
+	}
+	dataSet := []string{}
+	for idx := 0; idx < len(keys); idx += 1 {
+		alias := keys[idx]
+		value, _ := w.GetProperty(alias)
+		dataSet = append(dataSet, fmt.Sprint(value))
+	}
+	if err := writer.Write(dataSet); err != nil {
+		log.Fatalln("error writing csv-data:", err)
+		return
+	}
+	writer.Flush()
+	if err := writer.Error(); err != nil {
+		log.Fatalln("error writing csv:", err)
+		return
+	}
+	log.Println("export written to `wattpilot-data.csv`")
+}
+
 func inConnect(w *api.Wattpilot, data []string) {
 	connected, err := w.Connect()
 	if err != nil {

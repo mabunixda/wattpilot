@@ -32,6 +32,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
 
+      - name: remove golangci from precommit-configuration
+        run: |
+          sed -i 's/.*id: golangci-lint//' .pre-commit-config.yaml
+          sed -i '/^\s*$/d' .pre-commit-config.yaml
+
       - uses: pre-commit/action@v3.0.0
 
       - name: Build
