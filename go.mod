@@ -3,7 +3,9 @@ module github.com/mabunixda/wattpilot
 go 1.17
 
 require (
-	github.com/gorilla/websocket v1.5.0
 	golang.org/x/crypto v0.0.0-20220829220503-c86fa9a7ed90
 	gopkg.in/yaml.v2 v2.4.0
+	nhooyr.io/websocket v1.8.7
 )
+
+require github.com/klauspost/compress v1.10.3 // indirect
