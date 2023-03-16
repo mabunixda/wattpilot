@@ -1,6 +1,7 @@
 package wattpilot
 
 import (
+	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"crypto/sha512"
@@ -9,18 +10,21 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"math/rand"
 	"os"
 	"os/signal"
 	"strconv"
 	"time"
 
-	"github.com/gorilla/websocket"
 	"golang.org/x/crypto/pbkdf2"
+	"nhooyr.io/websocket"
 )
 
 const (
-	MAX_RECONNECT_RETRIES = 5
+	MAX_RECONNECT_RETRIES = 5  // re-tries
+	PING_TIMEOUT          = 10 // seconds
+	CONTEXT_TIMEOUT       = 60 // seconds
 )
 
 //go:generate go run gen/generate.go
@@ -40,6 +44,8 @@ type Wattpilot struct {
 	_devicetype        string
 	_protocol          float64
 	_secured           bool
+	_readContext       context.Context
+	_readCancel        context.CancelFunc
 	Reconnect          bool
 
 	_token3           string
@@ -62,18 +68,19 @@ type Wattpilot struct {
 
 func New(host string, password string) *Wattpilot {
 	w := &Wattpilot{
-		_host:             host,
-		_password:         password,
-		Reconnect:         true,
-		connected:         make(chan bool),
-		initialized:       make(chan bool),
-		sendResponse:      make(chan string),
-		done:              make(chan interface{}),
-		interrupt:         make(chan os.Signal),
-		Updated:           make(chan interface{}),
-		_isInitialized:    false,
-		_requestId:        1,
-		_reconnectTimeout: 2,
+		_host:              host,
+		_password:          password,
+		Reconnect:          true,
+		connected:          make(chan bool),
+		initialized:        make(chan bool),
+		sendResponse:       make(chan string),
+		done:               make(chan interface{}),
+		interrupt:          make(chan os.Signal),
+		Updated:            make(chan interface{}),
+		_currentConnection: nil,
+		_isInitialized:     false,
+		_requestId:         1,
+		_reconnectTimeout:  2,
 	}
 
 	signal.Notify(w.interrupt, os.Interrupt) // Notify the interrupt channel for SIGINT
@@ -89,6 +96,11 @@ func New(host string, password string) *Wattpilot {
 		"clearInverters": w.onEventClearInverters,
 		"updateInverter": w.onEventUpdateInverter,
 	}
+
+	w._readContext, w._readCancel = context.WithCancel(context.Background())
+
+	go w.loop()
+
 	return w
 
 }
@@ -202,9 +214,7 @@ func (w *Wattpilot) onEventAuthRequired(message map[string]interface{}) {
 		"hash":   hash,
 	}
 	err := w.onSendRepsonse(false, response)
-	if err != nil {
-		w._isInitialized = false
-	}
+	w._isInitialized = (err != nil)
 }
 
 func (w *Wattpilot) onSendRepsonse(secured bool, message map[string]interface{}) error {
@@ -224,7 +234,9 @@ func (w *Wattpilot) onSendRepsonse(secured bool, message map[string]interface{})
 
 	data, _ := json.Marshal(message)
 
-	err := w._currentConnection.WriteMessage(websocket.TextMessage, data)
+	context, cancel := context.WithTimeout(context.Background(), time.Second*CONTEXT_TIMEOUT)
+	defer cancel()
+	err := w._currentConnection.Write(context, websocket.MessageText, data)
 	if err != nil {
 		return err
 	}
@@ -277,19 +289,28 @@ func (w *Wattpilot) onEventClearInverters(message map[string]interface{}) {
 func (w *Wattpilot) onEventUpdateInverter(message map[string]interface{}) {
 	// log.Println(message)
 }
-
+func (w *Wattpilot) Disconnect() {
+	if !w._isInitialized {
+		return
+	}
+	<-w.interrupt
+}
 func (w *Wattpilot) Connect() (bool, error) {
 
-	socketUrl := "ws://" + w._host + "/ws"
+	if w._isInitialized {
+		return true, nil
+	}
 
 	var err error
-	w._currentConnection, _, err = websocket.DefaultDialer.Dial(socketUrl, nil)
+	dialContext, cancel := context.WithTimeout(context.Background(), time.Second*CONTEXT_TIMEOUT)
+	defer cancel()
+
+	w._currentConnection, _, err = websocket.Dial(dialContext, fmt.Sprintf("ws://%s/ws", w._host), nil)
 	if err != nil {
 		return false, err
 	}
 
 	go w.receiveHandler()
-	go w.loop()
 
 	isConnected := <-w.connected
 	if !isConnected {
@@ -304,6 +325,8 @@ func (w *Wattpilot) Connect() (bool, error) {
 func (w *Wattpilot) reconnect() {
 	reConnectLoop := 0
 	for {
+		w._readCancel()
+		w._isInitialized = false
 		time.Sleep(time.Second * time.Duration(w._reconnectTimeout))
 		isConnected, _ := w.Connect()
 		if isConnected {
@@ -320,15 +343,16 @@ func (w *Wattpilot) loop() {
 
 	for {
 		select {
-		case <-time.After(time.Duration(1) * time.Millisecond * 1000):
-			// Send an echo packet every second
-			err := w._currentConnection.WriteMessage(websocket.TextMessage, []byte(""))
-			if err != nil {
+		case <-time.After(time.Duration(1) * time.Second * PING_TIMEOUT):
+			if !w._isInitialized {
 				continue
 			}
 
+		case <-w._readContext.Done():
 		case <-w.interrupt:
-			err := w._currentConnection.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+			log.Println("INTERRUPTED")
+			err := w._currentConnection.Close(websocket.StatusNormalClosure, "Bye Bye")
+			w._readCancel()
 			if err != nil {
 				return
 			}
@@ -347,14 +371,18 @@ func (w *Wattpilot) loop() {
 func (w *Wattpilot) receiveHandler() {
 
 	for {
-		_, msg, err := w._currentConnection.ReadMessage()
+
+		typ, msg, err := w._currentConnection.Read(w._readContext)
 		if err != nil {
+			w._readCancel()
+
+			log.Printf("Read error: %s, %s, %s\n", typ, msg, err)
 			if w.Reconnect {
 				go w.reconnect()
 			}
-			break
+			return
 		}
-		// log.Printf("Received: %s\n", msg)
+		log.Printf("Received: %s-%s\n", typ, msg)
 		data := make(map[string]interface{})
 		err = json.Unmarshal(msg, &data)
 		if err != nil {

@@ -109,16 +109,9 @@ func main() {
 
 	for {
 		select {
-		// case <-time.After(time.Duration(1) * time.Millisecond * 1000):
-		//     // Send an echo packet every second
-		//     // err := conn.WriteMessage(websocket.TextMessage, []byte("Hello from GolangDocs!"))
-		//     if err != nil {
-		//         log.Println("Error during writing to websocket:", err)
-		//         return
-		//     }
 
 		case <-interrupt:
-
+			w.Disconnect()
 			return
 
 		default:

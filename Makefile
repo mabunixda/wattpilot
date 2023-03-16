@@ -7,4 +7,4 @@ fmt:
 	go fmt ./...
 
 build:
-	go build -o ./shell ./shell/
+	go build -o shell ./shell/
