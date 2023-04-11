@@ -94,7 +94,13 @@ func inConnect(w *api.Wattpilot, data []string) {
 	log.Printf("Connected to WattPilot %s, Serial %s", w.GetName(), w.GetSerial())
 }
 
+func processUpdates(ups <-chan interface{}) {
+	updates = ups
+}
+
 var interrupt chan os.Signal
+
+var updates <-chan interface{}
 
 func main() {
 	host := os.Getenv("WATTPILOT_HOST")
@@ -103,12 +109,18 @@ func main() {
 		return
 	}
 	w := api.New(host, pwd)
+	// just a sample to test notification updates
+	processUpdates(w.GetNotifications("fhz"))
 	inConnect(w, nil)
 
 	w.StatusInfo()
 
 	for {
 		select {
+
+		case <-updates:
+			fmt.Println(<-updates)
+			break
 
 		case <-interrupt:
 			w.Disconnect()

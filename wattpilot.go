@@ -15,6 +15,7 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"sync"
 	"time"
 
 	"golang.org/x/crypto/pbkdf2"
@@ -31,7 +32,54 @@ const (
 
 var randomSource = rand.New(rand.NewSource(time.Now().UnixNano()))
 
-type EventFunc func(map[string]interface{})
+type eventFunc func(map[string]interface{})
+
+type Pubsub struct {
+	mu     sync.RWMutex
+	subs   map[string][]chan interface{}
+	closed bool
+}
+
+func NewPubsub() *Pubsub {
+	ps := &Pubsub{}
+	ps.subs = make(map[string][]chan interface{})
+	return ps
+}
+func (ps *Pubsub) Subscribe(topic string) <-chan interface{} {
+	ps.mu.Lock()
+	defer ps.mu.Unlock()
+
+	ch := make(chan interface{}, 1)
+	ps.subs[topic] = append(ps.subs[topic], ch)
+	return ch
+}
+
+func (ps *Pubsub) Publish(topic string, msg interface{}) {
+	ps.mu.RLock()
+	defer ps.mu.RUnlock()
+
+	if ps.closed {
+		return
+	}
+	for _, ch := range ps.subs[topic] {
+		go func(ch chan interface{}) {
+			ch <- msg
+		}(ch)
+	}
+}
+func (ps *Pubsub) Close() {
+	ps.mu.Lock()
+	defer ps.mu.Unlock()
+
+	if !ps.closed {
+		ps.closed = true
+		for _, subs := range ps.subs {
+			for _, ch := range subs {
+				close(ch)
+			}
+		}
+	}
+}
 
 type Wattpilot struct {
 	_currentConnection *websocket.Conn
@@ -55,7 +103,7 @@ type Wattpilot struct {
 	_isInitialized    bool
 	_status           map[string]interface{}
 	_reconnectTimeout int64
-	eventHandler      map[string]EventFunc
+	eventHandler      map[string]eventFunc
 
 	connected    chan bool
 	initialized  chan bool
@@ -63,20 +111,20 @@ type Wattpilot struct {
 	interrupt    chan os.Signal
 	done         chan interface{}
 
-	Updated chan interface{}
+	_notifications *Pubsub
 }
 
 func New(host string, password string) *Wattpilot {
 	w := &Wattpilot{
-		_host:              host,
-		_password:          password,
-		Reconnect:          true,
-		connected:          make(chan bool),
-		initialized:        make(chan bool),
-		sendResponse:       make(chan string),
-		done:               make(chan interface{}),
-		interrupt:          make(chan os.Signal),
-		Updated:            make(chan interface{}),
+		_host:        host,
+		_password:    password,
+		Reconnect:    true,
+		connected:    make(chan bool),
+		initialized:  make(chan bool),
+		sendResponse: make(chan string),
+		done:         make(chan interface{}),
+		interrupt:    make(chan os.Signal),
+
 		_currentConnection: nil,
 		_isInitialized:     false,
 		_requestId:         1,
@@ -85,7 +133,9 @@ func New(host string, password string) *Wattpilot {
 
 	signal.Notify(w.interrupt, os.Interrupt) // Notify the interrupt channel for SIGINT
 
-	w.eventHandler = map[string]EventFunc{
+	w._notifications = NewPubsub()
+
+	w.eventHandler = map[string]eventFunc{
 		"hello":          w.onEventHello,
 		"authRequired":   w.onEventAuthRequired,
 		"response":       w.onEventResponse,
@@ -97,9 +147,10 @@ func New(host string, password string) *Wattpilot {
 		"updateInverter": w.onEventUpdateInverter,
 	}
 
-	w._readContext, w._readCancel = context.WithCancel(context.Background())
+	ctx := context.TODO()
+	w._readContext, w._readCancel = context.WithCancel(ctx)
 
-	go w.loop()
+	go w.processLoop(ctx)
 
 	return w
 
@@ -270,7 +321,10 @@ func (w *Wattpilot) onEventFullStatus(message map[string]interface{}) {
 
 	w._status = merge(w._status, status)
 
-	//w.Updated = <-status
+	for k, v := range status {
+		go w._notifications.Publish(k, v)
+
+	}
 
 	if isPartial {
 		return
@@ -281,8 +335,15 @@ func (w *Wattpilot) onEventFullStatus(message map[string]interface{}) {
 func (w *Wattpilot) onEventDeltaStatus(message map[string]interface{}) {
 	status := message["status"].(map[string]interface{})
 	w._status = merge(w._status, status)
-	// w.Updated <- status
+	for k, v := range status {
+		go w._notifications.Publish(k, v)
+	}
 }
+
+func (w *Wattpilot) GetNotifications(prop string) <-chan interface{} {
+	return w._notifications.Subscribe(prop)
+}
+
 func (w *Wattpilot) onEventClearInverters(message map[string]interface{}) {
 	// log.Println(message)
 }
@@ -310,7 +371,7 @@ func (w *Wattpilot) Connect() (bool, error) {
 		return false, err
 	}
 
-	go w.receiveHandler()
+	go w.receiveHandler(w._readContext)
 
 	isConnected := <-w.connected
 	if !isConnected {
@@ -339,7 +400,7 @@ func (w *Wattpilot) reconnect() {
 	}
 }
 
-func (w *Wattpilot) loop() {
+func (w *Wattpilot) processLoop(ctx context.Context) {
 
 	for {
 		select {
@@ -348,27 +409,20 @@ func (w *Wattpilot) loop() {
 				continue
 			}
 
+		case <-ctx.Done():
 		case <-w._readContext.Done():
 		case <-w.interrupt:
-			log.Println("INTERRUPTED")
 			err := w._currentConnection.Close(websocket.StatusNormalClosure, "Bye Bye")
 			w._readCancel()
 			if err != nil {
 				return
-			}
-
-			select {
-			case <-w.done:
-				// log.Println("Receiver Channel Closed! Exiting....")
-			case <-time.After(time.Duration(1) * time.Second):
-				// log.Println("Timeout in closing receiving channel. Exiting....")
 			}
 			return
 		}
 	}
 }
 
-func (w *Wattpilot) receiveHandler() {
+func (w *Wattpilot) receiveHandler(ctx context.Context) {
 
 	for {
 
@@ -380,9 +434,10 @@ func (w *Wattpilot) receiveHandler() {
 			if w.Reconnect {
 				go w.reconnect()
 			}
+			ctx.Done()
 			return
 		}
-		log.Printf("Received: %s-%s\n", typ, msg)
+		// log.Printf("Received: %s-%s\n", typ, msg)
 		data := make(map[string]interface{})
 		err = json.Unmarshal(msg, &data)
 		if err != nil {
