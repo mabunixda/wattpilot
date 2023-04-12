@@ -94,6 +94,7 @@ type Wattpilot struct {
 	_secured           bool
 	_readContext       context.Context
 	_readCancel        context.CancelFunc
+	_readMutex         sync.RWMutex
 	Reconnect          bool
 
 	_token3           string
@@ -129,6 +130,7 @@ func New(host string, password string) *Wattpilot {
 		_isInitialized:     false,
 		_requestId:         1,
 		_reconnectTimeout:  2,
+		_status:            make(map[string]interface{}),
 	}
 
 	signal.Notify(w.interrupt, os.Interrupt) // Notify the interrupt channel for SIGINT
@@ -193,16 +195,6 @@ func (w *Wattpilot) LookupAlias(name string) string {
 func hasKey(data map[string]interface{}, key string) bool {
 	_, isKnown := data[key]
 	return isKnown
-}
-
-func merge(ms ...map[string]interface{}) map[string]interface{} {
-	res := make(map[string]interface{})
-	for _, m := range ms {
-		for k, v := range m {
-			res[k] = v
-		}
-	}
-	return res
 }
 
 func sha256sum(data string) string {
@@ -317,14 +309,8 @@ func (w *Wattpilot) onEventAuthError(message map[string]interface{}) {
 func (w *Wattpilot) onEventFullStatus(message map[string]interface{}) {
 
 	isPartial := message["partial"].(bool)
-	status := message["status"].(map[string]interface{})
 
-	w._status = merge(w._status, status)
-
-	for k, v := range status {
-		go w._notifications.Publish(k, v)
-
-	}
+	w.onEventDeltaStatus(message)
 
 	if isPartial {
 		return
@@ -333,8 +319,15 @@ func (w *Wattpilot) onEventFullStatus(message map[string]interface{}) {
 	w._isInitialized = true
 }
 func (w *Wattpilot) onEventDeltaStatus(message map[string]interface{}) {
+
+	w._readMutex.Lock()
+	defer w._readMutex.Unlock()
+
 	status := message["status"].(map[string]interface{})
-	w._status = merge(w._status, status)
+	for k, v := range status {
+		w._status[k] = v
+	}
+
 	for k, v := range status {
 		go w._notifications.Publish(k, v)
 	}
@@ -468,8 +461,12 @@ func (w *Wattpilot) GetProperty(name string) (interface{}, error) {
 	if post {
 		name = m.key
 	}
+
+	w._readMutex.Lock()
+	defer w._readMutex.Unlock()
+
 	if !hasKey(w._status, name) {
-		return nil, errors.New("could not find " + name)
+		return nil, errors.New("could not find value of " + name)
 	}
 	value := w._status[name]
 	if post {
@@ -479,18 +476,22 @@ func (w *Wattpilot) GetProperty(name string) (interface{}, error) {
 }
 
 func (w *Wattpilot) SetProperty(name string, value interface{}) error {
+
 	if !w._isInitialized {
 		return errors.New("connection is not valid")
 	}
+	w._readMutex.Lock()
+	defer w._readMutex.Unlock()
+
 	if !hasKey(w._status, name) {
-		return errors.New("could not find " + name)
+		return errors.New("could not find reference for update on " + name)
 	}
 
 	err := w.sendUpdate(name, value)
 	if err != nil {
 		return err
 	}
-	w._status[name] = value
+
 	return nil
 }
 
@@ -529,23 +530,19 @@ func (w *Wattpilot) sendUpdate(name string, value interface{}) error {
 
 }
 
-func (w *Wattpilot) Status() (map[string]interface{}, error) {
-	if !w._isInitialized {
-		return nil, errors.New("connection is not initialzed")
-	}
-
-	return w._status, nil
-}
-
 func (w *Wattpilot) StatusInfo() {
 
 	fmt.Println("Wattpilot: " + w._name)
 	fmt.Println("Serial: ", w._serial)
 
-	fmt.Printf("Car Connected: %v\n", w._status["car"])
-	fmt.Printf("Charge Status %v\n", w._status["alw"])
-	fmt.Printf("Mode: %v\n", w._status["lmo"])
-	fmt.Printf("Power: %v\n\nCharge: ", w._status["amp"])
+	v, _ := w.GetProperty("car")
+	fmt.Printf("Car Connected: %v\n", v)
+	v, _ = w.GetProperty("alw")
+	fmt.Printf("Charge Status %v\n", v)
+	v, _ = w.GetProperty("imo")
+	fmt.Printf("Mode: %v\n", v)
+	v, _ = w.GetProperty("amp")
+	fmt.Printf("Power: %v\n\nCharge: ", v)
 
 	v1, v2, v3, _ := w.GetVoltages()
 	fmt.Printf("%v V, %v V, %v V", v1, v2, v3)
