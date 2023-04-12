@@ -1,3 +1,17 @@
+<a name="v1.3.0"></a>
+# [v1.3.0](https://github.com/mabunixda/wattpilot/releases/tag/v1.3.0) - 12 Apr 2023
+
+## 1.3.0 (2023-04-12)
+
+#### Feature
+
+* pubsub routine  (#13) (29ec789d)
+
+
+
+[Changes][v1.3.0]
+
+
 <a name="v1.2.0"></a>
 # [v1.2.0](https://github.com/mabunixda/wattpilot/releases/tag/v1.2.0) - 16 Mar 2023
 
@@ -152,6 +166,7 @@
 [Changes][v1.0.0]
 
 
+[v1.3.0]: https://github.com/mabunixda/wattpilot/compare/v1.2.0...v1.3.0
 [v1.2.0]: https://github.com/mabunixda/wattpilot/compare/v1.1.2...v1.2.0
 [v1.1.2]: https://github.com/mabunixda/wattpilot/compare/v1.1.1...v1.1.2
 [v1.1.1]: https://github.com/mabunixda/wattpilot/compare/v1.1.0...v1.1.1
