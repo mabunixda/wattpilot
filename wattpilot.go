@@ -10,7 +10,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"math/rand"
 	"os"
 	"os/signal"
@@ -23,9 +22,8 @@ import (
 )
 
 const (
-	MAX_RECONNECT_RETRIES = 5  // re-tries
-	PING_TIMEOUT          = 10 // seconds
-	CONTEXT_TIMEOUT       = 60 // seconds
+	CONTEXT_TIMEOUT   = 60 // seconds
+	RECONNECT_TIMEOUT = 2  // seconds
 )
 
 //go:generate go run gen/generate.go
@@ -97,14 +95,13 @@ type Wattpilot struct {
 	_readMutex         sync.RWMutex
 	Reconnect          bool
 
-	_token3           string
-	_hashedpassword   string
-	_host             string
-	_password         string
-	_isInitialized    bool
-	_status           map[string]interface{}
-	_reconnectTimeout int64
-	eventHandler      map[string]eventFunc
+	_token3         string
+	_hashedpassword string
+	_host           string
+	_password       string
+	_isInitialized  bool
+	_status         map[string]interface{}
+	eventHandler    map[string]eventFunc
 
 	connected    chan bool
 	initialized  chan bool
@@ -129,7 +126,6 @@ func New(host string, password string) *Wattpilot {
 		_currentConnection: nil,
 		_isInitialized:     false,
 		_requestId:         1,
-		_reconnectTimeout:  2,
 		_status:            make(map[string]interface{}),
 	}
 
@@ -149,10 +145,7 @@ func New(host string, password string) *Wattpilot {
 		"updateInverter": w.onEventUpdateInverter,
 	}
 
-	ctx := context.TODO()
-	w._readContext, w._readCancel = context.WithCancel(ctx)
-
-	go w.processLoop(ctx)
+	go w.processLoop(context.Background())
 
 	return w
 
@@ -277,7 +270,7 @@ func (w *Wattpilot) onSendRepsonse(secured bool, message map[string]interface{})
 
 	data, _ := json.Marshal(message)
 
-	context, cancel := context.WithTimeout(context.Background(), time.Second*CONTEXT_TIMEOUT)
+	context, cancel := context.WithTimeout(w._readContext, time.Second*CONTEXT_TIMEOUT)
 	defer cancel()
 	err := w._currentConnection.Write(context, websocket.MessageText, data)
 	if err != nil {
@@ -355,8 +348,10 @@ func (w *Wattpilot) Connect() (bool, error) {
 		return true, nil
 	}
 
+	w._readContext, w._readCancel = context.WithCancel(context.Background())
+
 	var err error
-	dialContext, cancel := context.WithTimeout(context.Background(), time.Second*CONTEXT_TIMEOUT)
+	dialContext, cancel := context.WithTimeout(w._readContext, time.Second*CONTEXT_TIMEOUT)
 	defer cancel()
 
 	w._currentConnection, _, err = websocket.Dial(dialContext, fmt.Sprintf("ws://%s/ws", w._host), nil)
@@ -376,20 +371,17 @@ func (w *Wattpilot) Connect() (bool, error) {
 	return true, nil
 }
 
-func (w *Wattpilot) reconnect() {
-	reConnectLoop := 0
+func (w *Wattpilot) reconnect(ctx context.Context) {
 	for {
-		w._readCancel()
 		w._isInitialized = false
-		time.Sleep(time.Second * time.Duration(w._reconnectTimeout))
+		fmt.Println("Reconnect")
 		isConnected, _ := w.Connect()
-		if isConnected {
-			return
+		if !isConnected {
+			time.Sleep(time.Second * time.Duration(RECONNECT_TIMEOUT))
+			continue
 		}
-		reConnectLoop += 1
-		if reConnectLoop > MAX_RECONNECT_RETRIES {
-			return
-		}
+		ctx.Done()
+		return
 	}
 }
 
@@ -397,14 +389,14 @@ func (w *Wattpilot) processLoop(ctx context.Context) {
 
 	for {
 		select {
-		case <-time.After(time.Duration(1) * time.Second * PING_TIMEOUT):
-			if !w._isInitialized {
-				continue
-			}
+		case <-w._readContext.Done():
+			fmt.Println("bye bye")
+			w.reconnect(ctx)
+			break
 
 		case <-ctx.Done():
-		case <-w._readContext.Done():
 		case <-w.interrupt:
+			fmt.Println("read Cancel")
 			err := w._currentConnection.Close(websocket.StatusNormalClosure, "Bye Bye")
 			w._readCancel()
 			if err != nil {
@@ -418,19 +410,11 @@ func (w *Wattpilot) processLoop(ctx context.Context) {
 func (w *Wattpilot) receiveHandler(ctx context.Context) {
 
 	for {
-
-		typ, msg, err := w._currentConnection.Read(w._readContext)
+		_, msg, err := w._currentConnection.Read(ctx)
 		if err != nil {
 			w._readCancel()
-
-			log.Printf("Read error: %s, %s, %s\n", typ, msg, err)
-			if w.Reconnect {
-				go w.reconnect()
-			}
-			ctx.Done()
 			return
 		}
-		// log.Printf("Received: %s-%s\n", typ, msg)
 		data := make(map[string]interface{})
 		err = json.Unmarshal(msg, &data)
 		if err != nil {
@@ -444,7 +428,6 @@ func (w *Wattpilot) receiveHandler(ctx context.Context) {
 		if !isKnown {
 			continue
 		}
-		// log.Printf("Calling " + msgType.(string))
 		funcCall(data)
 	}
 }
