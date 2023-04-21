@@ -93,13 +93,13 @@ type Wattpilot struct {
 	_readContext       context.Context
 	_readCancel        context.CancelFunc
 	_readMutex         sync.RWMutex
-	Reconnect          bool
 
 	_token3         string
 	_hashedpassword string
 	_host           string
 	_password       string
 	_isInitialized  bool
+	_isConnected    bool
 	_status         map[string]interface{}
 	eventHandler    map[string]eventFunc
 
@@ -114,9 +114,9 @@ type Wattpilot struct {
 
 func New(host string, password string) *Wattpilot {
 	w := &Wattpilot{
-		_host:        host,
-		_password:    password,
-		Reconnect:    true,
+		_host:     host,
+		_password: password,
+
 		connected:    make(chan bool),
 		initialized:  make(chan bool),
 		sendResponse: make(chan string),
@@ -124,6 +124,7 @@ func New(host string, password string) *Wattpilot {
 		interrupt:    make(chan os.Signal),
 
 		_currentConnection: nil,
+		_isConnected:       false,
 		_isInitialized:     false,
 		_requestId:         1,
 		_status:            make(map[string]interface{}),
@@ -344,7 +345,7 @@ func (w *Wattpilot) Disconnect() {
 }
 func (w *Wattpilot) Connect() (bool, error) {
 
-	if w._isInitialized {
+	if w._isConnected || w._isInitialized {
 		return true, nil
 	}
 
@@ -358,7 +359,6 @@ func (w *Wattpilot) Connect() (bool, error) {
 	if err != nil {
 		return false, err
 	}
-
 	go w.receiveHandler(w._readContext)
 
 	isConnected := <-w.connected
@@ -366,17 +366,26 @@ func (w *Wattpilot) Connect() (bool, error) {
 		return false, errors.New("could not connect")
 	}
 
+	w._isConnected = true
 	<-w.initialized
 
 	return true, nil
 }
 
 func (w *Wattpilot) reconnect(ctx context.Context) {
+
+	w._readMutex.Lock()
+	defer w._readMutex.Unlock()
+
+	if w._isConnected {
+		return
+	}
+
 	for {
 		w._isInitialized = false
 		fmt.Println("Reconnect")
-		isConnected, _ := w.Connect()
-		if !isConnected {
+		w._isConnected, _ = w.Connect()
+		if !w._isConnected {
 			time.Sleep(time.Second * time.Duration(RECONNECT_TIMEOUT))
 			continue
 		}
@@ -390,15 +399,18 @@ func (w *Wattpilot) processLoop(ctx context.Context) {
 	for {
 		select {
 		case <-w._readContext.Done():
-			fmt.Println("bye bye")
+			w._isConnected = false
 			w.reconnect(ctx)
 			break
 
 		case <-ctx.Done():
 		case <-w.interrupt:
-			fmt.Println("read Cancel")
 			err := w._currentConnection.Close(websocket.StatusNormalClosure, "Bye Bye")
 			w._readCancel()
+
+			w._isConnected = false
+			w._isInitialized = false
+
 			if err != nil {
 				return
 			}
