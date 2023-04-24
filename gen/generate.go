@@ -67,7 +67,7 @@ func main() {
 	}
 	mk := make([]string, len(propertyMap))
 	i := 0
-	for k, _ := range propertyMap {
+	for k := range propertyMap {
 		mk[i] = k
 		i++
 	}

@@ -387,7 +387,7 @@ func (w *Wattpilot) disconnectImpl() {
 	}
 
 	if err := w._currentConnection.Close(websocket.StatusNormalClosure, "Bye Bye"); err != nil {
-		//		w._log.WithFields(log.Fields{"wattpilot": w._host}).Warn("Error on closing connection: ", err)
+		w._log.WithFields(log.Fields{"wattpilot": w._host}).Trace("Error on closing connection: ", err)
 	}
 
 	w._isInitialized = false
