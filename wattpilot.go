@@ -480,6 +480,7 @@ func (w *Wattpilot) receiveHandler(ctx context.Context) {
 	for {
 		_, msg, err := w._currentConnection.Read(ctx)
 		if err != nil {
+			w._log.WithFields(log.Fields{"wattpilot": w._host}).Info("Stopping receive handler...")
 			w._readCancel()
 			return
 		}
@@ -500,6 +501,7 @@ func (w *Wattpilot) receiveHandler(ctx context.Context) {
 		}
 		funcCall(data)
 	}
+
 }
 
 func (w *Wattpilot) GetProperty(name string) (interface{}, error) {
