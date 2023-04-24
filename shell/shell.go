@@ -98,12 +98,9 @@ func dumpData(w *api.Wattpilot, data []string) {
 }
 
 func inConnect(w *api.Wattpilot, data []string) {
-	connected, err := w.Connect()
+	err := w.Connect()
 	if err != nil {
 		log.Println("Could not connect", err)
-	}
-	if !connected || !w.IsInitialized() {
-		return
 	}
 	log.Printf("Connected to WattPilot %s, Serial %s", w.GetName(), w.GetSerial())
 }
