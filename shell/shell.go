@@ -20,15 +20,26 @@ var inputs = map[string]InputFunc{
 	"set":        inSetValue,
 	"properties": inProperties,
 	"dataDump":   dumpData,
+	"level":      setLevel,
 }
 
+func setLevel(w *api.Wattpilot, data []string) {
+	if len(data) == 0 {
+		return
+	}
+	if err := w.ParseLogLevel(data[0]); err != nil {
+		fmt.Println("error on update: ", err)
+	}
+}
 func inStatus(w *api.Wattpilot, data []string) {
 	w.StatusInfo()
-
 	fmt.Println("")
 }
 
 func inGetValue(w *api.Wattpilot, data []string) {
+	if len(data) == 0 {
+		return
+	}
 	v, err := w.GetProperty(data[0])
 	if err != nil {
 		fmt.Println(err)
@@ -37,6 +48,9 @@ func inGetValue(w *api.Wattpilot, data []string) {
 	fmt.Println(v)
 }
 func inSetValue(w *api.Wattpilot, data []string) {
+	if len(data) <= 1 {
+		return
+	}
 	err := w.SetProperty(data[0], data[1])
 	if err == nil {
 		return
@@ -105,10 +119,17 @@ var updates <-chan interface{}
 func main() {
 	host := os.Getenv("WATTPILOT_HOST")
 	pwd := os.Getenv("WATTPILOT_PASSWORD")
+	level := os.Getenv("WATTPILOT_LOG")
 	if host == "" || pwd == "" {
 		return
 	}
+	if level == "" {
+		level = "WARN"
+	}
 	w := api.New(host, pwd)
+	if err := w.ParseLogLevel(level); err != nil {
+		fmt.Println("Could not update loglevel to", level, err)
+	}
 	// just a sample to test notification updates
 	processUpdates(w.GetNotifications("fhz"))
 	inConnect(w, nil)
