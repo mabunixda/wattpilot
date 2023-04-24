@@ -457,16 +457,19 @@ func (w *Wattpilot) reconnect() {
 func (w *Wattpilot) processLoop(ctx context.Context) {
 
 	w._log.WithFields(log.Fields{"wattpilot": w._host}).Info("Starting process loop...")
-	timeout := time.After(time.Second * (CONTEXT_TIMEOUT / 2))
+	delayDuration := time.Duration(time.Second * CONTEXT_TIMEOUT)
+	delay := time.NewTimer(delayDuration)
+
 	for {
 		select {
-		case <-timeout:
+		case <-delay.C:
+			delay.Reset(delayDuration)
 			if !w._isInitialized {
+				w._log.WithFields(log.Fields{"wattpilot": w._host}).Trace("No Hello there")
 				continue
 			}
-
 			w._log.WithFields(log.Fields{"wattpilot": w._host}).Trace("Hello there")
-			pingCtx, cancel := context.WithDeadline(ctx, time.Now().Add(RECONNECT_TIMEOUT*time.Second))
+			pingCtx, cancel := context.WithDeadline(context.Background(), time.Now().Add(RECONNECT_TIMEOUT*time.Second))
 			defer cancel()
 			if err := w._currentConnection.Ping(pingCtx); err != nil {
 				w._log.WithFields(log.Fields{"wattpilot": w._host}).Trace("Hello failed: ", err)
@@ -490,6 +493,9 @@ func (w *Wattpilot) processLoop(ctx context.Context) {
 		case <-w.interrupt:
 			w._log.WithFields(log.Fields{"wattpilot": w._host}).Trace("Stopping process loop...")
 			w.disconnectImpl()
+			if !delay.Stop() {
+				<-delay.C
+			}
 			return
 		}
 	}
