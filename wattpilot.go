@@ -22,8 +22,8 @@ import (
 )
 
 const (
-	CONTEXT_TIMEOUT   = 60 // seconds
-	RECONNECT_TIMEOUT = 2  // seconds
+	CONTEXT_TIMEOUT   = 30 // seconds
+	RECONNECT_TIMEOUT = 5  // seconds
 )
 
 //go:generate go run gen/generate.go
@@ -92,7 +92,7 @@ type Wattpilot struct {
 	_secured           bool
 	_readContext       context.Context
 	_readCancel        context.CancelFunc
-	_readMutex         sync.RWMutex
+	_readMutex         sync.Mutex
 
 	_token3         string
 	_hashedpassword string
@@ -334,7 +334,7 @@ func (w *Wattpilot) onEventAuthError(message map[string]interface{}) {
 
 func (w *Wattpilot) onEventFullStatus(message map[string]interface{}) {
 
-	w._log.WithFields(log.Fields{"wattpilot": w._host}).Trace("Full status update")
+	w._log.WithFields(log.Fields{"wattpilot": w._host}).Trace("Full status update - is partial: ", message["partial"])
 
 	isPartial := message["partial"].(bool)
 
@@ -343,6 +343,7 @@ func (w *Wattpilot) onEventFullStatus(message map[string]interface{}) {
 	if isPartial {
 		return
 	}
+
 	w.initialized <- true
 	w._isInitialized = true
 }
@@ -374,22 +375,36 @@ func (w *Wattpilot) onEventUpdateInverter(message map[string]interface{}) {
 	w._log.WithFields(log.Fields{"wattpilot": w._host}).Trace("update inverters")
 }
 func (w *Wattpilot) Disconnect() {
-	w._log.WithFields(log.Fields{"wattpilot": w._host}).Info("Disconnecting")
-
-	if !w._isInitialized {
-		return
-	}
+	w.disconnectImpl()
 	<-w.interrupt
 }
 
-func (w *Wattpilot) Connect() (bool, error) {
+func (w *Wattpilot) disconnectImpl() {
+	w._log.WithFields(log.Fields{"wattpilot": w._host}).Info("Disconnecting")
+
+	if !w._isConnected {
+		return
+	}
+
+	if err := w._currentConnection.Close(websocket.StatusNormalClosure, "Bye Bye"); err != nil {
+		//		w._log.WithFields(log.Fields{"wattpilot": w._host}).Warn("Error on closing connection: ", err)
+	}
+
+	w._isInitialized = false
+	w._isConnected = false
+	w._currentConnection = nil
+
+	w._log.WithFields(log.Fields{"wattpilot": w._host}).Trace("closed connection")
+
+}
+
+func (w *Wattpilot) Connect() error {
 
 	w._log.WithFields(log.Fields{"wattpilot": w._host}).Info("Connecting")
 
 	if w._isConnected || w._isInitialized {
 		w._log.WithFields(log.Fields{"wattpilot": w._host}).Debug("Already Connected")
-
-		return true, nil
+		return nil
 	}
 
 	w._readContext, w._readCancel = context.WithCancel(context.Background())
@@ -397,47 +412,44 @@ func (w *Wattpilot) Connect() (bool, error) {
 	var err error
 	dialContext, cancel := context.WithTimeout(w._readContext, time.Second*CONTEXT_TIMEOUT)
 	defer cancel()
-
 	w._currentConnection, _, err = websocket.Dial(dialContext, fmt.Sprintf("ws://%s/ws", w._host), nil)
 	if err != nil {
-		return false, err
+		return err
 	}
+
 	go w.receiveHandler(w._readContext)
 
-	isConnected := <-w.connected
-	if !isConnected {
-		return false, errors.New("could not connect")
+	w._isConnected = <-w.connected
+	w._log.WithFields(log.Fields{"wattpilot": w._host}).Trace("Connection is ", w._isConnected)
+	if !w._isConnected {
+		return errors.New("could not connect")
 	}
 
-	w._isConnected = true
+	w._log.WithFields(log.Fields{"wattpilot": w._host}).Trace("Connected - waiting for initializiation...")
+
 	<-w.initialized
 
-	return true, nil
+	w._log.WithFields(log.Fields{"wattpilot": w._host}).Trace("Connected - and initializiated")
+
+	return nil
 }
 
-func (w *Wattpilot) reconnect(ctx context.Context) {
+func (w *Wattpilot) reconnect() {
 
 	w._log.WithFields(log.Fields{"wattpilot": w._host}).Info("Reconnecting")
-
-	w._readMutex.Lock()
-	defer w._readMutex.Unlock()
 
 	if w._isConnected {
 		return
 	}
 
 	for {
-		w._isInitialized = false
-		w._log.WithFields(log.Fields{"wattpilot": w._host}).Debug("Reconnect running")
-
-		w._isConnected, _ = w.Connect()
-		if !w._isConnected {
-			time.Sleep(time.Second * time.Duration(RECONNECT_TIMEOUT))
+		w._log.WithFields(log.Fields{"wattpilot": w._host}).Debug("Reconnect is running...")
+		time.Sleep(time.Second * time.Duration(RECONNECT_TIMEOUT))
+		if err := w.Connect(); err != nil {
+			w._log.WithFields(log.Fields{"wattpilot": w._host}).Debug("Reconnect failure: ", err)
 			continue
 		}
 		w._log.WithFields(log.Fields{"wattpilot": w._host}).Info("Successfully reconnected")
-
-		ctx.Done()
 		return
 	}
 }
@@ -445,29 +457,35 @@ func (w *Wattpilot) reconnect(ctx context.Context) {
 func (w *Wattpilot) processLoop(ctx context.Context) {
 
 	w._log.WithFields(log.Fields{"wattpilot": w._host}).Info("Starting process loop...")
-
+	timeout := time.After(time.Second * (CONTEXT_TIMEOUT / 2))
 	for {
 		select {
+		case <-timeout:
+			if !w._isInitialized {
+				continue
+			}
+
+			w._log.WithFields(log.Fields{"wattpilot": w._host}).Trace("Hello there")
+			pingCtx, cancel := context.WithDeadline(ctx, time.Now().Add(RECONNECT_TIMEOUT*time.Second))
+			defer cancel()
+			w._currentConnection.Ping(pingCtx)
+			select {
+			case <-time.After((1 + RECONNECT_TIMEOUT) * time.Second):
+				w._log.WithFields(log.Fields{"wattpilot": w._host}).Trace("Hello: overslept")
+			case <-pingCtx.Done():
+				w._log.WithFields(log.Fields{"wattpilot": w._host}).Trace("Hello: ", pingCtx.Err())
+			}
+			break
 		case <-w._readContext.Done():
 			w._log.WithFields(log.Fields{"wattpilot": w._host}).Trace("Read context is done")
-
-			w._isConnected = false
-			w.reconnect(ctx)
+			w.disconnectImpl()
+			w.reconnect()
 			break
 
 		case <-ctx.Done():
 		case <-w.interrupt:
 			w._log.WithFields(log.Fields{"wattpilot": w._host}).Trace("Stopping process loop...")
-
-			err := w._currentConnection.Close(websocket.StatusNormalClosure, "Bye Bye")
-			w._readCancel()
-
-			w._isConnected = false
-			w._isInitialized = false
-
-			if err != nil {
-				return
-			}
+			w.disconnectImpl()
 			return
 		}
 	}
@@ -500,6 +518,7 @@ func (w *Wattpilot) receiveHandler(ctx context.Context) {
 			continue
 		}
 		funcCall(data)
+		w._log.WithFields(log.Fields{"wattpilot": w._host}).Trace("done ", msgType)
 	}
 
 }
