@@ -468,7 +468,10 @@ func (w *Wattpilot) processLoop(ctx context.Context) {
 			w._log.WithFields(log.Fields{"wattpilot": w._host}).Trace("Hello there")
 			pingCtx, cancel := context.WithDeadline(ctx, time.Now().Add(RECONNECT_TIMEOUT*time.Second))
 			defer cancel()
-			w._currentConnection.Ping(pingCtx)
+			if err := w._currentConnection.Ping(pingCtx); err != nil {
+				w._log.WithFields(log.Fields{"wattpilot": w._host}).Trace("Hello failed: ", err)
+				break
+			}
 			select {
 			case <-time.After((1 + RECONNECT_TIMEOUT) * time.Second):
 				w._log.WithFields(log.Fields{"wattpilot": w._host}).Trace("Hello: overslept")
