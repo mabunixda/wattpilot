@@ -3,11 +3,11 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"gopkg.in/yaml.v2"
 	"io"
 	"net/http"
 	"os"
-
-	"gopkg.in/yaml.v2"
+	"sort"
 )
 
 const (
@@ -54,10 +54,10 @@ func main() {
 			}
 		}
 		if key != "" && alias != "" {
-
 			propertyMap[alias] = key
 		}
 	}
+
 	f, _ := os.Create(output)
 	defer f.Close()
 
@@ -65,7 +65,15 @@ func main() {
 	if _, err := w.WriteString("package wattpilot\nvar propertyMap = map[string]string {\n"); err != nil {
 		return
 	}
-	for i, s := range propertyMap {
+	mk := make([]string, len(propertyMap))
+	i := 0
+	for k, _ := range propertyMap {
+		mk[i] = k
+		i++
+	}
+	sort.Strings(mk)
+	for _, i := range mk {
+		s := propertyMap[i]
 		if _, err := w.WriteString(fmt.Sprintf("\"%s\": \"%s\",\n", i, s)); err != nil {
 			return
 		}
