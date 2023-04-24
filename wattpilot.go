@@ -470,6 +470,7 @@ func (w *Wattpilot) processLoop(ctx context.Context) {
 			defer cancel()
 			if err := w._currentConnection.Ping(pingCtx); err != nil {
 				w._log.WithFields(log.Fields{"wattpilot": w._host}).Trace("Hello failed: ", err)
+				w._readCancel()
 				break
 			}
 			select {
