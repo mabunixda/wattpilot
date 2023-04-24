@@ -136,7 +136,6 @@ func New(host string, password string) *Wattpilot {
 	w._log = log.New()
 	w._log.SetFormatter(&log.JSONFormatter{})
 	w._log.SetLevel(log.TraceLevel)
-	w._log.Error("blaaa")
 
 	signal.Notify(w.interrupt, os.Interrupt) // Notify the interrupt channel for SIGINT
 
@@ -224,7 +223,7 @@ func (w *Wattpilot) getRequestId() int {
 
 func (w *Wattpilot) onEventHello(message map[string]interface{}) {
 
-	w._log.WithFields(log.Fields{"wattpilot": w._host}).Trace("Hello from Wattpilot")
+	w._log.WithFields(log.Fields{"wattpilot": w._host}).Info("Hello from Wattpilot")
 
 	if hasKey(message, "hostname") {
 		w._hostname = message["hostname"].(string)
@@ -262,7 +261,7 @@ func randomHexString(n int) string {
 
 func (w *Wattpilot) onEventAuthRequired(message map[string]interface{}) {
 
-	w._log.WithFields(log.Fields{"wattpilot": w._host}).Trace("Auhtentication required")
+	w._log.WithFields(log.Fields{"wattpilot": w._host}).Info("Auhtentication required")
 
 	token1 := message["token1"].(string)
 	token2 := message["token2"].(string)
@@ -375,16 +374,17 @@ func (w *Wattpilot) onEventUpdateInverter(message map[string]interface{}) {
 	w._log.WithFields(log.Fields{"wattpilot": w._host}).Trace("update inverters")
 }
 func (w *Wattpilot) Disconnect() {
-	w._log.WithFields(log.Fields{"wattpilot": w._host}).Trace("Disconnecting")
+	w._log.WithFields(log.Fields{"wattpilot": w._host}).Info("Disconnecting")
 
 	if !w._isInitialized {
 		return
 	}
 	<-w.interrupt
 }
+
 func (w *Wattpilot) Connect() (bool, error) {
 
-	w._log.WithFields(log.Fields{"wattpilot": w._host}).Trace("Connecting")
+	w._log.WithFields(log.Fields{"wattpilot": w._host}).Info("Connecting")
 
 	if w._isConnected || w._isInitialized {
 		w._log.WithFields(log.Fields{"wattpilot": w._host}).Debug("Already Connected")
@@ -417,7 +417,7 @@ func (w *Wattpilot) Connect() (bool, error) {
 
 func (w *Wattpilot) reconnect(ctx context.Context) {
 
-	w._log.WithFields(log.Fields{"wattpilot": w._host}).Trace("Reconnecting")
+	w._log.WithFields(log.Fields{"wattpilot": w._host}).Info("Reconnecting")
 
 	w._readMutex.Lock()
 	defer w._readMutex.Unlock()
@@ -428,14 +428,14 @@ func (w *Wattpilot) reconnect(ctx context.Context) {
 
 	for {
 		w._isInitialized = false
-		w._log.WithFields(log.Fields{"wattpilot": w._host}).Trace("Reconnect running")
+		w._log.WithFields(log.Fields{"wattpilot": w._host}).Debug("Reconnect running")
 
 		w._isConnected, _ = w.Connect()
 		if !w._isConnected {
 			time.Sleep(time.Second * time.Duration(RECONNECT_TIMEOUT))
 			continue
 		}
-		w._log.WithFields(log.Fields{"wattpilot": w._host}).Trace("Successfully reconnected")
+		w._log.WithFields(log.Fields{"wattpilot": w._host}).Info("Successfully reconnected")
 
 		ctx.Done()
 		return
@@ -444,7 +444,7 @@ func (w *Wattpilot) reconnect(ctx context.Context) {
 
 func (w *Wattpilot) processLoop(ctx context.Context) {
 
-	w._log.WithFields(log.Fields{"wattpilot": w._host}).Trace("Starting process loop...")
+	w._log.WithFields(log.Fields{"wattpilot": w._host}).Info("Starting process loop...")
 
 	for {
 		select {
@@ -475,7 +475,7 @@ func (w *Wattpilot) processLoop(ctx context.Context) {
 
 func (w *Wattpilot) receiveHandler(ctx context.Context) {
 
-	w._log.WithFields(log.Fields{"wattpilot": w._host}).Trace("Starting receive handler...")
+	w._log.WithFields(log.Fields{"wattpilot": w._host}).Info("Starting receive handler...")
 
 	for {
 		_, msg, err := w._currentConnection.Read(ctx)
