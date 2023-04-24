@@ -322,13 +322,13 @@ func (w *Wattpilot) onEventResponse(message map[string]interface{}) {
 }
 
 func (w *Wattpilot) onEventAuthSuccess(message map[string]interface{}) {
-	w._log.WithFields(log.Fields{"wattpilot": w._host}).Info("Auhtentication successful", message)
+	w._log.WithFields(log.Fields{"wattpilot": w._host}).Info("Auhtentication successful")
 
 	w.connected <- true
 }
 
 func (w *Wattpilot) onEventAuthError(message map[string]interface{}) {
-	w._log.WithFields(log.Fields{"wattpilot": w._host}).Info("Auhtentication error", message)
+	w._log.WithFields(log.Fields{"wattpilot": w._host}).Error("Auhtentication error", message)
 	w.connected <- false
 }
 
