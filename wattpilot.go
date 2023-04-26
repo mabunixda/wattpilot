@@ -10,10 +10,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/gobwas/ws"
+	"github.com/gobwas/ws/wsutil"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/crypto/pbkdf2"
 	"math/rand"
-	"nhooyr.io/websocket"
+	"net"
 	"os"
 	"os/signal"
 	"strconv"
@@ -80,7 +82,7 @@ func (ps *Pubsub) Close() {
 }
 
 type Wattpilot struct {
-	_currentConnection *websocket.Conn
+	_currentConnection *net.Conn
 	_requestId         int
 	_name              string
 	_hostname          string
@@ -135,7 +137,10 @@ func New(host string, password string) *Wattpilot {
 
 	w._log = log.New()
 	w._log.SetFormatter(&log.JSONFormatter{})
-	w._log.SetLevel(log.TraceLevel)
+	w._log.SetLevel(log.ErrorLevel)
+	if level := os.Getenv("WATTPILOT_LOG"); level != "" {
+		w.ParseLogLevel(level)
+	}
 
 	signal.Notify(w.interrupt, os.Interrupt) // Notify the interrupt channel for SIGINT
 
@@ -296,10 +301,7 @@ func (w *Wattpilot) onSendRepsonse(secured bool, message map[string]interface{})
 	}
 
 	data, _ := json.Marshal(message)
-
-	context, cancel := context.WithTimeout(w._readContext, time.Second*CONTEXT_TIMEOUT)
-	defer cancel()
-	err := w._currentConnection.Write(context, websocket.MessageText, data)
+	err := wsutil.WriteClientMessage(*w._currentConnection, ws.OpText, data)
 	if err != nil {
 		return err
 	}
@@ -386,9 +388,10 @@ func (w *Wattpilot) disconnectImpl() {
 		return
 	}
 
-	if err := w._currentConnection.Close(websocket.StatusNormalClosure, "Bye Bye"); err != nil {
-		w._log.WithFields(log.Fields{"wattpilot": w._host}).Trace("Error on closing connection: ", err)
-	}
+	(*w._currentConnection).Close()
+	// if err := w._currentConnection.Close(websocket.StatusNormalClosure, "Bye Bye"); err != nil {
+	// 	w._log.WithFields(log.Fields{"wattpilot": w._host}).Trace("Error on closing connection: ", err)
+	// }
 
 	w._isInitialized = false
 	w._isConnected = false
@@ -412,10 +415,11 @@ func (w *Wattpilot) Connect() error {
 	var err error
 	dialContext, cancel := context.WithTimeout(w._readContext, time.Second*CONTEXT_TIMEOUT)
 	defer cancel()
-	w._currentConnection, _, err = websocket.Dial(dialContext, fmt.Sprintf("ws://%s/ws", w._host), nil)
+	conn, _, _, err := ws.DefaultDialer.Dial(dialContext, fmt.Sprintf("ws://%s/ws", w._host))
 	if err != nil {
 		return err
 	}
+	w._currentConnection = &conn
 
 	go w.receiveHandler(w._readContext)
 
@@ -469,9 +473,8 @@ func (w *Wattpilot) processLoop(ctx context.Context) {
 				continue
 			}
 			w._log.WithFields(log.Fields{"wattpilot": w._host}).Trace("Hello there")
-			pingCtx, cancel := context.WithDeadline(context.Background(), time.Now().Add(RECONNECT_TIMEOUT*time.Second))
-			defer cancel()
-			if err := w._currentConnection.Ping(pingCtx); err != nil {
+
+			if err := wsutil.WriteClientMessage(*w._currentConnection, ws.OpPing, nil); err != nil {
 				w._log.WithFields(log.Fields{"wattpilot": w._host}).Trace("Hello failed: ", err)
 				w._readCancel()
 				break
@@ -479,8 +482,8 @@ func (w *Wattpilot) processLoop(ctx context.Context) {
 			select {
 			case <-time.After((1 + RECONNECT_TIMEOUT) * time.Second):
 				w._log.WithFields(log.Fields{"wattpilot": w._host}).Trace("Hello: overslept")
-			case <-pingCtx.Done():
-				w._log.WithFields(log.Fields{"wattpilot": w._host}).Trace("Hello: ", pingCtx.Err())
+				// case <-pingCtx.Done():
+				// 	w._log.WithFields(log.Fields{"wattpilot": w._host}).Trace("Hello: ", pingCtx.Err())
 			}
 			break
 		case <-w._readContext.Done():
@@ -506,7 +509,7 @@ func (w *Wattpilot) receiveHandler(ctx context.Context) {
 	w._log.WithFields(log.Fields{"wattpilot": w._host}).Info("Starting receive handler...")
 
 	for {
-		_, msg, err := w._currentConnection.Read(ctx)
+		msg, _, err := wsutil.ReadServerData(*w._currentConnection)
 		if err != nil {
 			w._log.WithFields(log.Fields{"wattpilot": w._host}).Info("Stopping receive handler...")
 			w._readCancel()
