@@ -139,7 +139,9 @@ func New(host string, password string) *Wattpilot {
 	w._log.SetFormatter(&log.JSONFormatter{})
 	w._log.SetLevel(log.ErrorLevel)
 	if level := os.Getenv("WATTPILOT_LOG"); level != "" {
-		w.ParseLogLevel(level)
+		if err := w.ParseLogLevel(level); err != nil {
+			w._log.Warn("Could not parse log level setting ", err)
+		}
 	}
 
 	signal.Notify(w.interrupt, os.Interrupt) // Notify the interrupt channel for SIGINT
@@ -479,12 +481,12 @@ func (w *Wattpilot) processLoop(ctx context.Context) {
 				w._readCancel()
 				break
 			}
-			select {
-			case <-time.After((1 + RECONNECT_TIMEOUT) * time.Second):
-				w._log.WithFields(log.Fields{"wattpilot": w._host}).Trace("Hello: overslept")
-				// case <-pingCtx.Done():
-				// 	w._log.WithFields(log.Fields{"wattpilot": w._host}).Trace("Hello: ", pingCtx.Err())
-			}
+			// select {
+			// case <-time.After((1 + RECONNECT_TIMEOUT) * time.Second):
+			// 	w._log.WithFields(log.Fields{"wattpilot": w._host}).Trace("Hello: overslept")
+			// 	// case <-pingCtx.Done():
+			// 	// 	w._log.WithFields(log.Fields{"wattpilot": w._host}).Trace("Hello: ", pingCtx.Err())
+			// }
 			break
 		case <-w._readContext.Done():
 			w._log.WithFields(log.Fields{"wattpilot": w._host}).Trace("Read context is done")
