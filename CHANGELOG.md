@@ -1,3 +1,17 @@
+<a name="v1.5.0"></a>
+# [v1.5.0](https://github.com/mabunixda/wattpilot/releases/tag/v1.5.0) - 27 Apr 2023
+
+## 1.5.0 (2023-04-27)
+
+#### Feature
+
+* websocket replacement (#17) (42dd2c87)
+
+
+
+[Changes][v1.5.0]
+
+
 <a name="v1.4.1"></a>
 # [v1.4.1](https://github.com/mabunixda/wattpilot/releases/tag/v1.4.1) - 24 Apr 2023
 
@@ -208,6 +222,7 @@
 [Changes][v1.0.0]
 
 
+[v1.5.0]: https://github.com/mabunixda/wattpilot/compare/v1.4.1...v1.5.0
 [v1.4.1]: https://github.com/mabunixda/wattpilot/compare/v1.4.0...v1.4.1
 [v1.4.0]: https://github.com/mabunixda/wattpilot/compare/v1.3.1...v1.4.0
 [v1.3.1]: https://github.com/mabunixda/wattpilot/compare/v1.3.0...v1.3.1
