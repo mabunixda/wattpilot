@@ -705,9 +705,20 @@ func (w *Wattpilot) SetCurrent(current float64) error {
 
 func (w *Wattpilot) GetRFID() (string, error) {
 
+	resp, err := w.GetProperty("trx")
+	if err != nil {
+		return "", err
+	}
+	return resp.(string), nil
+
+}
+
+func (w *Wattpilot) getCarIdentifier( string, error) {
+
 	resp, err := w.GetProperty("cak")
 	if err != nil {
 		return "", err
 	}
 	return resp.(string), nil
+
 }
