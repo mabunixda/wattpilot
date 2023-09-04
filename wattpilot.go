@@ -713,7 +713,7 @@ func (w *Wattpilot) GetRFID() (string, error) {
 
 }
 
-func (w *Wattpilot) getCarIdentifier()(string, error) {
+func (w *Wattpilot) getCarIdentifier() (string, error) {
 
 	resp, err := w.GetProperty("cak")
 	if err != nil {
