@@ -10,7 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
+	//	"log"
 	"math/rand"
 	"os"
 	"os/signal"
@@ -26,6 +26,14 @@ const (
 	PING_TIMEOUT          = 10 // seconds
 	CONTEXT_TIMEOUT       = 60 // seconds
 )
+
+func Keys[K comparable, V any](m map[K]V) []K {
+	keys := make([]K, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	return keys
+}
 
 //go:generate go run gen/generate.go
 
@@ -350,7 +358,6 @@ func (w *Wattpilot) loop() {
 
 		case <-w._readContext.Done():
 		case <-w.interrupt:
-			log.Println("INTERRUPTED")
 			err := w._currentConnection.Close(websocket.StatusNormalClosure, "Bye Bye")
 			w._readCancel()
 			if err != nil {
@@ -372,17 +379,17 @@ func (w *Wattpilot) receiveHandler() {
 
 	for {
 
-		typ, msg, err := w._currentConnection.Read(w._readContext)
+		_, msg, err := w._currentConnection.Read(w._readContext)
 		if err != nil {
 			w._readCancel()
 
-			log.Printf("Read error: %s, %s, %s\n", typ, msg, err)
+			// log.Printf("Read error: %s, %s, %s\n", typ, msg, err)
 			if w.Reconnect {
 				go w.reconnect()
 			}
 			return
 		}
-		log.Printf("Received: %s-%s\n", typ, msg)
+		// log.Printf("Received: %s-%s\n", typ, msg)
 		data := make(map[string]interface{})
 		err = json.Unmarshal(msg, &data)
 		if err != nil {

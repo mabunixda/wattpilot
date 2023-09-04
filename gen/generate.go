@@ -6,7 +6,9 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"sort"
 
+	api "github.com/mabunixda/wattpilot"
 	"gopkg.in/yaml.v2"
 )
 
@@ -65,7 +67,12 @@ func main() {
 	if _, err := w.WriteString("package wattpilot\nvar propertyMap = map[string]string {\n"); err != nil {
 		return
 	}
-	for i, s := range propertyMap {
+	keys := api.Keys(propertyMap)
+	sort.Strings(keys)
+
+	for idx := 0; idx < len(keys); idx += 1 {
+		i := keys[idx]
+		s := propertyMap[i]
 		if _, err := w.WriteString(fmt.Sprintf("\"%s\": \"%s\",\n", i, s)); err != nil {
 			return
 		}
