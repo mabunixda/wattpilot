@@ -1,3 +1,17 @@
+<a name="v1.6.0"></a>
+# [v1.6.0](https://github.com/mabunixda/wattpilot/releases/tag/v1.6.0) - 04 Sep 2023
+
+## 1.6.0 (2023-09-04)
+
+#### Feature
+
+* update RFID function to return trx flag (3a2cc2d5)
+
+
+
+[Changes][v1.6.0]
+
+
 <a name="v1.5.0"></a>
 # [v1.5.0](https://github.com/mabunixda/wattpilot/releases/tag/v1.5.0) - 27 Apr 2023
 
@@ -222,6 +236,7 @@
 [Changes][v1.0.0]
 
 
+[v1.6.0]: https://github.com/mabunixda/wattpilot/compare/v1.5.0...v1.6.0
 [v1.5.0]: https://github.com/mabunixda/wattpilot/compare/v1.4.1...v1.5.0
 [v1.4.1]: https://github.com/mabunixda/wattpilot/compare/v1.4.0...v1.4.1
 [v1.4.0]: https://github.com/mabunixda/wattpilot/compare/v1.3.1...v1.4.0
