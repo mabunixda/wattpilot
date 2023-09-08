@@ -1,3 +1,87 @@
+<a name="v1.6.0"></a>
+# [v1.6.0](https://github.com/mabunixda/wattpilot/releases/tag/v1.6.0) - 04 Sep 2023
+
+## 1.6.0 (2023-09-04)
+
+#### Feature
+
+* update RFID function to return trx flag (3a2cc2d5)
+
+
+
+[Changes][v1.6.0]
+
+
+<a name="v1.5.0"></a>
+# [v1.5.0](https://github.com/mabunixda/wattpilot/releases/tag/v1.5.0) - 27 Apr 2023
+
+## 1.5.0 (2023-04-27)
+
+#### Feature
+
+* websocket replacement (#17) (42dd2c87)
+
+
+
+[Changes][v1.5.0]
+
+
+<a name="v1.4.1"></a>
+# [v1.4.1](https://github.com/mabunixda/wattpilot/releases/tag/v1.4.1) - 24 Apr 2023
+
+## 1.4.1 (2023-04-24)
+
+#### Bug Fixes
+
+* reconnect (#16) (f2c9ac97)
+
+
+
+[Changes][v1.4.1]
+
+
+<a name="v1.4.0"></a>
+# [v1.4.0](https://github.com/mabunixda/wattpilot/releases/tag/v1.4.0) - 24 Apr 2023
+
+## 1.4.0 (2023-04-24)
+
+#### Feature
+
+* reconnecting and logging (#15) (8aaa853b)
+
+
+
+[Changes][v1.4.0]
+
+
+<a name="v1.3.1"></a>
+# [v1.3.1](https://github.com/mabunixda/wattpilot/releases/tag/v1.3.1) - 18 Apr 2023
+
+## 1.3.1 (2023-04-18)
+
+#### Bug Fixes
+
+* time and context fail (#14) (b5946f8a)
+
+
+
+[Changes][v1.3.1]
+
+
+<a name="v1.3.0"></a>
+# [v1.3.0](https://github.com/mabunixda/wattpilot/releases/tag/v1.3.0) - 12 Apr 2023
+
+## 1.3.0 (2023-04-12)
+
+#### Feature
+
+* pubsub routine  (#13) (29ec789d)
+
+
+
+[Changes][v1.3.0]
+
+
 <a name="v1.2.0"></a>
 # [v1.2.0](https://github.com/mabunixda/wattpilot/releases/tag/v1.2.0) - 16 Mar 2023
 
@@ -152,6 +236,12 @@
 [Changes][v1.0.0]
 
 
+[v1.6.0]: https://github.com/mabunixda/wattpilot/compare/v1.5.0...v1.6.0
+[v1.5.0]: https://github.com/mabunixda/wattpilot/compare/v1.4.1...v1.5.0
+[v1.4.1]: https://github.com/mabunixda/wattpilot/compare/v1.4.0...v1.4.1
+[v1.4.0]: https://github.com/mabunixda/wattpilot/compare/v1.3.1...v1.4.0
+[v1.3.1]: https://github.com/mabunixda/wattpilot/compare/v1.3.0...v1.3.1
+[v1.3.0]: https://github.com/mabunixda/wattpilot/compare/v1.2.0...v1.3.0
 [v1.2.0]: https://github.com/mabunixda/wattpilot/compare/v1.1.2...v1.2.0
 [v1.1.2]: https://github.com/mabunixda/wattpilot/compare/v1.1.1...v1.1.2
 [v1.1.1]: https://github.com/mabunixda/wattpilot/compare/v1.1.0...v1.1.1

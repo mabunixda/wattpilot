@@ -56,10 +56,10 @@ func main() {
 			}
 		}
 		if key != "" && alias != "" {
-
 			propertyMap[alias] = key
 		}
 	}
+
 	f, _ := os.Create(output)
 	defer f.Close()
 

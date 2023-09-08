@@ -1,7 +1,9 @@
 all: fmt build
 
-preprocess:
+preprocess: fmt
 	go generate ./...
+	# format generated files 
+	go fmt ./... 
 
 fmt:
 	go fmt ./...
