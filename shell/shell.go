@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"sort"
 	"strings"
 
 	api "github.com/mabunixda/wattpilot"
@@ -19,7 +20,7 @@ var inputs = map[string]InputFunc{
 	"get":        inGetValue,
 	"set":        inSetValue,
 	"properties": inProperties,
-	"dataDump":   dumpData,
+	"dump":       dumpData,
 	"level":      setLevel,
 }
 
@@ -68,16 +69,39 @@ func inProperties(w *api.Wattpilot, data []string) {
 	}
 }
 
-func dumpData(w *api.Wattpilot, data []string) {
-	csvFile, e := os.Create("./wattpilot-data.csv")
-	if e != nil {
-		fmt.Println(e)
+func remove[T comparable](l []T, item T) []T {
+	for i, other := range l {
+		if other == item {
+			return append(l[:i], l[i+1:]...)
+		}
 	}
-	keys := w.Properties()
-	writer := csv.NewWriter(csvFile)
-	if err := writer.Write(keys); err != nil {
-		log.Fatalln("Could not create csv file dump")
+	return l
+}
+
+func dumpData(w *api.Wattpilot, data []string) {
+	filename := "./wattpilot-data.csv"
+	if len(data) > 0 {
+		filename = data[0]
+	}
+	dumpHeader := false
+	if _, err := os.Stat(filename); os.IsNotExist(err) {
+		dumpHeader = true
+	}
+	csvFile, err := os.OpenFile(filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		fmt.Println("Could not create file: ", err)
 		return
+	}
+
+	keys := remove(w.Properties(), "wsm")
+	sort.Strings(keys)
+
+	writer := csv.NewWriter(csvFile)
+	if dumpHeader {
+		if err := writer.Write(keys); err != nil {
+			log.Fatalln("Could not create csv file dump")
+			return
+		}
 	}
 	dataSet := []string{}
 	for idx := 0; idx < len(keys); idx += 1 {
@@ -94,7 +118,7 @@ func dumpData(w *api.Wattpilot, data []string) {
 		log.Fatalln("error writing csv:", err)
 		return
 	}
-	log.Println("export written to `wattpilot-data.csv`")
+	log.Println("export written to ", filename)
 }
 
 func inConnect(w *api.Wattpilot, data []string) {

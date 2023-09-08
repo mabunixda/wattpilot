@@ -10,10 +10,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/gobwas/ws"
-	"github.com/gobwas/ws/wsutil"
-	log "github.com/sirupsen/logrus"
-	"golang.org/x/crypto/pbkdf2"
 	"math/rand"
 	"net"
 	"os"
@@ -21,12 +17,25 @@ import (
 	"strconv"
 	"sync"
 	"time"
+
+	"github.com/gobwas/ws"
+	"github.com/gobwas/ws/wsutil"
+	log "github.com/sirupsen/logrus"
+	"golang.org/x/crypto/pbkdf2"
 )
 
 const (
 	CONTEXT_TIMEOUT   = 30 // seconds
 	RECONNECT_TIMEOUT = 5  // seconds
 )
+
+func Keys[K comparable, V any](m map[K]V) []K {
+	keys := make([]K, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	return keys
+}
 
 //go:generate go run gen/generate.go
 
