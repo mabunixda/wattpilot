@@ -1,3 +1,18 @@
+<a name="v1.6.1"></a>
+# [v1.6.1](https://github.com/mabunixda/wattpilot/releases/tag/v1.6.1) - 08 Sep 2023
+
+## 1.6.1 (2023-09-08)
+
+#### Bug Fixes
+
+* update from main (7c1f7cb1)
+* structural cleanup (19fd60d3)
+
+
+
+[Changes][v1.6.1]
+
+
 <a name="v1.6.0"></a>
 # [v1.6.0](https://github.com/mabunixda/wattpilot/releases/tag/v1.6.0) - 04 Sep 2023
 
@@ -236,6 +251,7 @@
 [Changes][v1.0.0]
 
 
+[v1.6.1]: https://github.com/mabunixda/wattpilot/compare/v1.6.0...v1.6.1
 [v1.6.0]: https://github.com/mabunixda/wattpilot/compare/v1.5.0...v1.6.0
 [v1.5.0]: https://github.com/mabunixda/wattpilot/compare/v1.4.1...v1.5.0
 [v1.4.1]: https://github.com/mabunixda/wattpilot/compare/v1.4.0...v1.4.1
