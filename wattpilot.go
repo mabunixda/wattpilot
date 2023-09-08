@@ -718,6 +718,9 @@ func (w *Wattpilot) GetRFID() (string, error) {
 	if err != nil {
 		return "", err
 	}
+	if resp == nil {
+		return "", nil
+	}
 	return resp.(string), nil
 
 }
@@ -727,6 +730,9 @@ func (w *Wattpilot) GetCarIdentifier() (string, error) {
 	resp, err := w.GetProperty("cak")
 	if err != nil {
 		return "", err
+	}
+	if resp == nil {
+		return "", nil
 	}
 	return resp.(string), nil
 
