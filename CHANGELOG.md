@@ -1,3 +1,18 @@
+<a name="v1.6.2"></a>
+# [v1.6.2](https://github.com/mabunixda/wattpilot/releases/tag/v1.6.2) - 10 Sep 2023
+
+## 1.6.2 (2023-09-10)
+
+#### Bug Fixes
+
+* float vs string (3e49da79)
+* no trx handling (f342cb1c)
+
+
+
+[Changes][v1.6.2]
+
+
 <a name="v1.6.1"></a>
 # [v1.6.1](https://github.com/mabunixda/wattpilot/releases/tag/v1.6.1) - 08 Sep 2023
 
@@ -251,6 +266,7 @@
 [Changes][v1.0.0]
 
 
+[v1.6.2]: https://github.com/mabunixda/wattpilot/compare/v1.6.1...v1.6.2
 [v1.6.1]: https://github.com/mabunixda/wattpilot/compare/v1.6.0...v1.6.1
 [v1.6.0]: https://github.com/mabunixda/wattpilot/compare/v1.5.0...v1.6.0
 [v1.5.0]: https://github.com/mabunixda/wattpilot/compare/v1.4.1...v1.5.0
