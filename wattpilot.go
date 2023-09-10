@@ -721,7 +721,8 @@ func (w *Wattpilot) GetRFID() (string, error) {
 	if resp == nil {
 		return "", nil
 	}
-	return resp.(string), nil
+	rfid := resp.(float64)
+	return fmt.Sprint(rfid), nil
 
 }
 
