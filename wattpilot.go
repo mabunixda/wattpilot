@@ -144,6 +144,8 @@ func New(host string, password string) *Wattpilot {
 		_status:            make(map[string]interface{}),
 	}
 
+	w._readContext, w._readCancel = context.WithCancel(context.Background())
+
 	w._log = log.New()
 	w._log.SetFormatter(&log.JSONFormatter{})
 	w._log.SetLevel(log.ErrorLevel)
@@ -232,8 +234,11 @@ func sha256sum(data string) string {
 }
 
 func (w *Wattpilot) getRequestId() int {
+	w._readMutex.Lock()
+	defer w._readMutex.Unlock()
 	current := w._requestId
 	w._requestId += 1
+
 	return current
 }
 
@@ -326,6 +331,10 @@ func (w *Wattpilot) onEventResponse(message map[string]interface{}) {
 	mType := message["type"].(string)
 	success, ok := message["success"]
 	if ok && success.(bool) {
+		return
+	}
+	if !success.(bool) {
+		w._log.WithFields(log.Fields{"wattpilot": w._host}).Error("Failure happened: ", message["message"])
 		return
 	}
 	if mType == "response" {
@@ -421,8 +430,6 @@ func (w *Wattpilot) Connect() error {
 		return nil
 	}
 
-	w._readContext, w._readCancel = context.WithCancel(context.Background())
-
 	var err error
 	dialContext, cancel := context.WithTimeout(w._readContext, time.Second*CONTEXT_TIMEOUT)
 	defer cancel()
@@ -484,8 +491,7 @@ func (w *Wattpilot) processLoop(ctx context.Context) {
 				continue
 			}
 			w._log.WithFields(log.Fields{"wattpilot": w._host}).Trace("Hello there")
-
-			if err := wsutil.WriteClientMessage(*w._currentConnection, ws.OpPing, nil); err != nil {
+			if err := w.RequestStatusUpdate(); err != nil {
 				w._log.WithFields(log.Fields{"wattpilot": w._host}).Trace("Hello failed: ", err)
 				w._readCancel()
 				break
@@ -737,4 +743,11 @@ func (w *Wattpilot) GetCarIdentifier() (string, error) {
 	}
 	return resp.(string), nil
 
+}
+
+func (w *Wattpilot) RequestStatusUpdate() error {
+	message := make(map[string]interface{})
+	message["type"] = "requestFullStatus"
+	message["requestId"] = w.getRequestId()
+	return w.onSendRepsonse(w._secured, message)
 }

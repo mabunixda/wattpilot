@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	fullURLFile = "https://raw.githubusercontent.com/joscha82/wattpilot/da08c3fb387b06497e007bef1ff88f0112a080ea/src/wattpilot/ressources/wattpilot.yaml"
+	fullURLFile = "https://github.com/joscha82/wattpilot/blob/main/src/wattpilot/ressources/wattpilot.yaml"
 	output      = "wattpilot_mapping_gen.go"
 )
 

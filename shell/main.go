@@ -19,9 +19,11 @@ var inputs = map[string]InputFunc{
 	"status":     inStatus,
 	"get":        inGetValue,
 	"set":        inSetValue,
+	"disconnect": inDisconnect,
 	"properties": inProperties,
 	"dump":       dumpData,
 	"level":      setLevel,
+	"update":     inUpdateStatus,
 }
 
 func setLevel(w *api.Wattpilot, data []string) {
@@ -29,9 +31,16 @@ func setLevel(w *api.Wattpilot, data []string) {
 		return
 	}
 	if err := w.ParseLogLevel(data[0]); err != nil {
+		fmt.Println("error on parsing: ", err)
+	}
+}
+
+func inUpdateStatus(w *api.Wattpilot, data []string) {
+	if err := w.RequestStatusUpdate(); err != nil {
 		fmt.Println("error on update: ", err)
 	}
 }
+
 func inStatus(w *api.Wattpilot, data []string) {
 	w.StatusInfo()
 	fmt.Println("")
@@ -127,6 +136,10 @@ func inConnect(w *api.Wattpilot, data []string) {
 		log.Println("Could not connect", err)
 	}
 	log.Printf("Connected to WattPilot %s, Serial %s", w.GetName(), w.GetSerial())
+}
+
+func inDisconnect(w *api.Wattpilot, data []string) {
+	w.Disconnect()
 }
 
 func processUpdates(ups <-chan interface{}) {
