@@ -37,10 +37,10 @@ jobs:
           sed -i 's/.*id: golangci-lint//' .pre-commit-config.yaml
           sed -i '/^\s*$/d' .pre-commit-config.yaml
 
-      - uses: pre-commit/action@v3.0.0
+      - uses: pre-commit/action@v3
 
       - name: Build
-        run: make build
+        run: make all
 
       - name: Lint
         uses: golangci/golangci-lint-action@v3
