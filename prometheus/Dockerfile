@@ -1,0 +1,25 @@
+ARG BUILD_DATE=0
+ARG COMMIT=0
+ARG VERSION=unknown
+ARG BINARY=wattpilot_exporter
+
+FROM golang:stretch as builder
+ARG BINARY
+RUN mkdir -p $GOPATH/pkg/mod $GOPATH/bin $GOPATH/src /${BINARY}
+COPY . /${BINARY}
+WORKDIR /${BINARY}
+
+RUN CGO_ENABLED=0 make ${BINARY}
+
+FROM debian:buster-slim
+ARG BUILD_DATE
+ARG VERSION
+ARG BINARY
+
+ENV WATTPILOT_HOST=""
+ENV WATTPILOT_PWD=""
+ENV WATTPILOT_LOG=Info
+
+COPY --from=builder /${BINARY}/${BINARY} /image
+
+ENTRYPOINT [ "/image" ]%

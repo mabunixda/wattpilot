@@ -1,3 +1,6 @@
 wattpilot.yaml
 shell/shell
 *.csv
+prometheus/.metadata.make
+prometheus/wattpilot_exporter
+shell/.metadata.make
