@@ -1,3 +1,21 @@
+<a name="v1.6.3"></a>
+# [v1.6.3](https://github.com/mabunixda/wattpilot/releases/tag/v1.6.3) - 18 Jan 2024
+
+## 1.6.3 (2024-01-18)
+
+#### Bug Fixes
+
+* using fullstatus Update pull after context timeout delay (#28) (d318e73a)
+
+#### Build
+
+* **deps:** bump golang.org/x/crypto in /prometheus (#27) (41d984f9)
+
+
+
+[Changes][v1.6.3]
+
+
 <a name="v1.6.2"></a>
 # [v1.6.2](https://github.com/mabunixda/wattpilot/releases/tag/v1.6.2) - 10 Sep 2023
 
@@ -266,6 +284,7 @@
 [Changes][v1.0.0]
 
 
+[v1.6.3]: https://github.com/mabunixda/wattpilot/compare/v1.6.2...v1.6.3
 [v1.6.2]: https://github.com/mabunixda/wattpilot/compare/v1.6.1...v1.6.2
 [v1.6.1]: https://github.com/mabunixda/wattpilot/compare/v1.6.0...v1.6.1
 [v1.6.0]: https://github.com/mabunixda/wattpilot/compare/v1.5.0...v1.6.0
