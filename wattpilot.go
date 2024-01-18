@@ -492,16 +492,10 @@ func (w *Wattpilot) processLoop(ctx context.Context) {
 			}
 			w._log.WithFields(log.Fields{"wattpilot": w._host}).Trace("Hello there")
 			if err := w.RequestStatusUpdate(); err != nil {
-				w._log.WithFields(log.Fields{"wattpilot": w._host}).Trace("Hello failed: ", err)
+				w._log.WithFields(log.Fields{"wattpilot": w._host}).Error("Full Status Update failed: ", err)
 				w._readCancel()
 				break
 			}
-			// select {
-			// case <-time.After((1 + RECONNECT_TIMEOUT) * time.Second):
-			// 	w._log.WithFields(log.Fields{"wattpilot": w._host}).Trace("Hello: overslept")
-			// 	// case <-pingCtx.Done():
-			// 	// 	w._log.WithFields(log.Fields{"wattpilot": w._host}).Trace("Hello: ", pingCtx.Err())
-			// }
 			break
 		case <-w._readContext.Done():
 			w._log.WithFields(log.Fields{"wattpilot": w._host}).Trace("Read context is done")
