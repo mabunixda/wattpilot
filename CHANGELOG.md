@@ -1,10 +1,11 @@
 <a name="v1.6.3"></a>
-# [v1.6.3](https://github.com/mabunixda/wattpilot/releases/tag/v1.6.3) - 18 Jan 2024
+# [v1.6.3](https://github.com/mabunixda/wattpilot/releases/tag/v1.6.3) - 28 Jan 2024
 
-## 1.6.3 (2024-01-18)
+## 1.6.3 (2024-01-28)
 
 #### Bug Fixes
 
+* retract v1.6.3 (#29) (cbd99427)
 * using fullstatus Update pull after context timeout delay (#28) (d318e73a)
 
 #### Build
