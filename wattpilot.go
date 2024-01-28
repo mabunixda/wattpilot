@@ -491,11 +491,11 @@ func (w *Wattpilot) processLoop(ctx context.Context) {
 				continue
 			}
 			w._log.WithFields(log.Fields{"wattpilot": w._host}).Trace("Hello there")
-			if err := w.RequestStatusUpdate(); err != nil {
-				w._log.WithFields(log.Fields{"wattpilot": w._host}).Error("Full Status Update failed: ", err)
-				w._readCancel()
-				break
-			}
+			// if err := w.RequestStatusUpdate(); err != nil {
+			// 	w._log.WithFields(log.Fields{"wattpilot": w._host}).Error("Full Status Update failed: ", err)
+			// 	w._readCancel()
+			// 	break
+			// }
 			break
 		case <-w._readContext.Done():
 			w._log.WithFields(log.Fields{"wattpilot": w._host}).Trace("Read context is done")
