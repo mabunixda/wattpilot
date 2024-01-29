@@ -103,7 +103,7 @@ type Wattpilot struct {
 	_secured           bool
 	_readContext       context.Context
 	_readCancel        context.CancelFunc
-	_readMutex         sync.Mutex
+	_readMutex         sync.RWMutex
 
 	_token3         string
 	_hashedpassword string
@@ -234,8 +234,8 @@ func sha256sum(data string) string {
 }
 
 func (w *Wattpilot) getRequestId() int {
-	w._readMutex.Lock()
-	defer w._readMutex.Unlock()
+	w._readMutex.RLock()
+	defer w._readMutex.RUnlock()
 	current := w._requestId
 	w._requestId += 1
 
@@ -295,13 +295,16 @@ func (w *Wattpilot) onEventAuthRequired(message map[string]interface{}) {
 		"token3": w._token3,
 		"hash":   hash,
 	}
-	err := w.onSendRepsonse(false, response)
+	err := w.onSendResponse(false, response)
 	w._isInitialized = (err != nil)
 }
 
-func (w *Wattpilot) onSendRepsonse(secured bool, message map[string]interface{}) error {
+func (w *Wattpilot) onSendResponse(secured bool, message map[string]interface{}) error {
 
 	w._log.WithFields(log.Fields{"wattpilot": w._host}).Trace("Sending data to wattpilot")
+
+	w._readMutex.Lock()
+	defer w._readMutex.Unlock()
 
 	if secured {
 		msgId := message["requestId"].(int)
@@ -317,6 +320,7 @@ func (w *Wattpilot) onSendRepsonse(secured bool, message map[string]interface{})
 	}
 
 	data, _ := json.Marshal(message)
+
 	err := wsutil.WriteClientMessage(*w._currentConnection, ws.OpText, data)
 	if err != nil {
 		return err
@@ -360,9 +364,12 @@ func (w *Wattpilot) onEventFullStatus(message map[string]interface{}) {
 
 	isPartial := message["partial"].(bool)
 
-	w.onEventDeltaStatus(message)
+	w.updateStatus(message)
 
 	if isPartial {
+		return
+	}
+	if w.IsInitialized() {
 		return
 	}
 
@@ -372,6 +379,11 @@ func (w *Wattpilot) onEventFullStatus(message map[string]interface{}) {
 func (w *Wattpilot) onEventDeltaStatus(message map[string]interface{}) {
 
 	w._log.WithFields(log.Fields{"wattpilot": w._host}).Trace("Delta status update")
+	w.updateStatus(message)
+
+}
+
+func (w *Wattpilot) updateStatus(message map[string]interface{}) {
 
 	w._readMutex.Lock()
 	defer w._readMutex.Unlock()
@@ -434,12 +446,14 @@ func (w *Wattpilot) Connect() error {
 	var err error
 	dialContext, cancel := context.WithTimeout(w._readContext, time.Second*CONTEXT_TIMEOUT)
 	defer cancel()
-	conn, _, _, err := ws.DefaultDialer.Dial(dialContext, fmt.Sprintf("ws://%s/ws", w._host))
+	conn, reader, _, err := ws.DefaultDialer.Dial(dialContext, fmt.Sprintf("ws://%s/ws", w._host))
 	if err != nil {
 		return err
 	}
 	w._currentConnection = &conn
-
+	if reader != nil {
+		ws.PutReader(reader)
+	}
 	go w.receiveHandler(w._readContext)
 
 	w._isConnected = <-w.connected
@@ -459,22 +473,19 @@ func (w *Wattpilot) Connect() error {
 
 func (w *Wattpilot) reconnect() {
 
-	w._log.WithFields(log.Fields{"wattpilot": w._host}).Info("Reconnecting")
-
 	if w._isConnected {
+		w._log.WithFields(log.Fields{"wattpilot": w._host}).Info("Reconnect - Is still connected")
 		return
 	}
 
-	for {
-		w._log.WithFields(log.Fields{"wattpilot": w._host}).Debug("Reconnect is running...")
-		time.Sleep(time.Second * time.Duration(RECONNECT_TIMEOUT))
-		if err := w.Connect(); err != nil {
-			w._log.WithFields(log.Fields{"wattpilot": w._host}).Debug("Reconnect failure: ", err)
-			continue
-		}
-		w._log.WithFields(log.Fields{"wattpilot": w._host}).Info("Successfully reconnected")
+	w._log.WithFields(log.Fields{"wattpilot": w._host}).Debug("Reconnecting..")
+	time.Sleep(time.Second * time.Duration(RECONNECT_TIMEOUT))
+	if err := w.Connect(); err != nil {
+		w._log.WithFields(log.Fields{"wattpilot": w._host}).Debug("Reconnect failure: ", err)
 		return
 	}
+	w._log.WithFields(log.Fields{"wattpilot": w._host}).Info("Successfully reconnected")
+
 }
 
 func (w *Wattpilot) processLoop(ctx context.Context) {
@@ -493,8 +504,11 @@ func (w *Wattpilot) processLoop(ctx context.Context) {
 			}
 			w._log.WithFields(log.Fields{"wattpilot": w._host}).Trace("Hello there")
 			go func() {
+				time.Sleep(time.Millisecond * 100)
 				if err := w.RequestStatusUpdate(); err != nil {
 					w._log.WithFields(log.Fields{"wattpilot": w._host}).Error("Full Status Update failed: ", err)
+					w.disconnectImpl()
+					w.reconnect()
 				}
 			}()
 			break
@@ -521,7 +535,7 @@ func (w *Wattpilot) receiveHandler(ctx context.Context) {
 	w._log.WithFields(log.Fields{"wattpilot": w._host}).Info("Starting receive handler...")
 
 	for {
-		msg, _, err := wsutil.ReadServerData(*w._currentConnection)
+		msg, err := wsutil.ReadServerText(*w._currentConnection)
 		if err != nil {
 			// w._readCancel()
 			w._log.WithFields(log.Fields{"wattpilot": w._host}).Info("Stopping receive handler...")
@@ -550,8 +564,8 @@ func (w *Wattpilot) receiveHandler(ctx context.Context) {
 
 func (w *Wattpilot) GetProperty(name string) (interface{}, error) {
 
-	w._readMutex.Lock()
-	defer w._readMutex.Unlock()
+	w._readMutex.RLock()
+	defer w._readMutex.RUnlock()
 
 	w._log.WithFields(log.Fields{"wattpilot": w._host}).Debug("Get Property ", name)
 
@@ -579,8 +593,6 @@ func (w *Wattpilot) GetProperty(name string) (interface{}, error) {
 
 func (w *Wattpilot) SetProperty(name string, value interface{}) error {
 
-	w._readMutex.Lock()
-	defer w._readMutex.Unlock()
 	w._log.WithFields(log.Fields{"wattpilot": w._host}).Debug("setting property ", name, " to ", value)
 
 	if !w._isInitialized {
@@ -630,7 +642,7 @@ func (w *Wattpilot) sendUpdate(name string, value interface{}) error {
 	message["requestId"] = w.getRequestId()
 	message["key"] = name
 	message["value"] = w.transformValue(value)
-	return w.onSendRepsonse(w._secured, message)
+	return w.onSendResponse(w._secured, message)
 
 }
 
@@ -744,5 +756,5 @@ func (w *Wattpilot) RequestStatusUpdate() error {
 	message := make(map[string]interface{})
 	message["type"] = "requestFullStatus"
 	message["requestId"] = w.getRequestId()
-	return w.onSendRepsonse(w._secured, message)
+	return w.onSendResponse(w._secured, message)
 }
