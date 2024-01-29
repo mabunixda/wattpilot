@@ -376,12 +376,12 @@ func (w *Wattpilot) onEventDeltaStatus(message map[string]interface{}) {
 	w._readMutex.Lock()
 	defer w._readMutex.Unlock()
 
-	status := message["status"].(map[string]interface{})
-	for k, v := range status {
+	statusUpdates := message["status"].(map[string]interface{})
+	for k, v := range statusUpdates {
 		w._status[k] = v
 	}
-	w._log.WithFields(log.Fields{"wattpilot": w._host}).Trace("Trigger notifications")
-	for k, v := range status {
+	w._log.WithFields(log.Fields{"wattpilot": w._host}).Trace("Sending notifications #", len(statusUpdates))
+	for k, v := range statusUpdates {
 		go w._notifications.Publish(k, v)
 	}
 }
@@ -397,6 +397,7 @@ func (w *Wattpilot) onEventUpdateInverter(message map[string]interface{}) {
 	w._log.WithFields(log.Fields{"wattpilot": w._host}).Trace("update inverters")
 }
 func (w *Wattpilot) Disconnect() {
+	w._isConnected = false
 	w.disconnectImpl()
 	<-w.interrupt
 }
@@ -404,18 +405,18 @@ func (w *Wattpilot) Disconnect() {
 func (w *Wattpilot) disconnectImpl() {
 	w._log.WithFields(log.Fields{"wattpilot": w._host}).Info("Disconnecting")
 
-	if !w._isConnected {
+	if !w._isInitialized {
 		return
 	}
 
-	(*w._currentConnection).Close()
-	// if err := w._currentConnection.Close(websocket.StatusNormalClosure, "Bye Bye"); err != nil {
-	// 	w._log.WithFields(log.Fields{"wattpilot": w._host}).Trace("Error on closing connection: ", err)
-	// }
+	if err := (*w._currentConnection).Close(); err != nil {
+		w._log.WithFields(log.Fields{"wattpilot": w._host}).Trace("Error on closing connection: ", err)
+	}
 
 	w._isInitialized = false
 	w._isConnected = false
 	w._currentConnection = nil
+	w._status = make(map[string]interface{})
 
 	w._log.WithFields(log.Fields{"wattpilot": w._host}).Trace("closed connection")
 
@@ -491,11 +492,11 @@ func (w *Wattpilot) processLoop(ctx context.Context) {
 				continue
 			}
 			w._log.WithFields(log.Fields{"wattpilot": w._host}).Trace("Hello there")
-			// if err := w.RequestStatusUpdate(); err != nil {
-			// 	w._log.WithFields(log.Fields{"wattpilot": w._host}).Error("Full Status Update failed: ", err)
-			// 	w._readCancel()
-			// 	break
-			// }
+			go func() {
+				if err := w.RequestStatusUpdate(); err != nil {
+					w._log.WithFields(log.Fields{"wattpilot": w._host}).Error("Full Status Update failed: ", err)
+				}
+			}()
 			break
 		case <-w._readContext.Done():
 			w._log.WithFields(log.Fields{"wattpilot": w._host}).Trace("Read context is done")
@@ -522,8 +523,8 @@ func (w *Wattpilot) receiveHandler(ctx context.Context) {
 	for {
 		msg, _, err := wsutil.ReadServerData(*w._currentConnection)
 		if err != nil {
+			// w._readCancel()
 			w._log.WithFields(log.Fields{"wattpilot": w._host}).Info("Stopping receive handler...")
-			w._readCancel()
 			return
 		}
 		data := make(map[string]interface{})
