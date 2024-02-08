@@ -10,7 +10,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"math/rand"
 	"net"
 	"os"
 	"os/signal"
@@ -30,66 +29,9 @@ const (
 	RECONNECT_TIMEOUT = 5  // seconds
 )
 
-func Keys[K comparable, V any](m map[K]V) []K {
-	keys := make([]K, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
-	}
-	return keys
-}
-
 //go:generate go run gen/generate.go
 
-var randomSource = rand.New(rand.NewSource(time.Now().UnixNano()))
-
 type eventFunc func(map[string]interface{})
-
-type Pubsub struct {
-	mu     sync.RWMutex
-	subs   map[string][]chan interface{}
-	closed bool
-}
-
-func NewPubsub() *Pubsub {
-	ps := &Pubsub{}
-	ps.subs = make(map[string][]chan interface{})
-	return ps
-}
-func (ps *Pubsub) Subscribe(topic string) <-chan interface{} {
-	ps.mu.Lock()
-	defer ps.mu.Unlock()
-
-	ch := make(chan interface{}, 1)
-	ps.subs[topic] = append(ps.subs[topic], ch)
-	return ch
-}
-
-func (ps *Pubsub) Publish(topic string, msg interface{}) {
-	ps.mu.RLock()
-	defer ps.mu.RUnlock()
-
-	if ps.closed {
-		return
-	}
-	for _, ch := range ps.subs[topic] {
-		go func(ch chan interface{}) {
-			ch <- msg
-		}(ch)
-	}
-}
-func (ps *Pubsub) Close() {
-	ps.mu.Lock()
-	defer ps.mu.Unlock()
-
-	if !ps.closed {
-		ps.closed = true
-		for _, subs := range ps.subs {
-			for _, ch := range subs {
-				close(ch)
-			}
-		}
-	}
-}
 
 type Wattpilot struct {
 	_currentConnection *net.Conn
@@ -208,6 +150,10 @@ func (w *Wattpilot) IsInitialized() bool {
 
 func (w *Wattpilot) Properties() []string {
 	keys := []string{}
+
+	w._readMutex.Lock()
+	defer w._readMutex.Unlock()
+
 	for k := range w._status {
 		keys = append(keys, k)
 	}
@@ -222,16 +168,6 @@ func (w *Wattpilot) Alias() []string {
 }
 func (w *Wattpilot) LookupAlias(name string) string {
 	return propertyMap[name]
-}
-
-func hasKey(data map[string]interface{}, key string) bool {
-	_, isKnown := data[key]
-	return isKnown
-}
-
-func sha256sum(data string) string {
-	bs := sha256.Sum256([]byte(data))
-	return fmt.Sprintf("%x", bs)
 }
 
 func (w *Wattpilot) getRequestId() int64 {
@@ -266,16 +202,6 @@ func (w *Wattpilot) onEventHello(message map[string]interface{}) {
 
 }
 
-func randomHexString(n int) string {
-	b := make([]byte, (n+2)/2) // can be simplified to n/2 if n is always even
-
-	if _, err := randomSource.Read(b); err != nil {
-		panic(err)
-	}
-
-	return hex.EncodeToString(b)[1 : n+1]
-}
-
 func (w *Wattpilot) onEventAuthRequired(message map[string]interface{}) {
 
 	w._log.WithFields(log.Fields{"wattpilot": w._host}).Info("Auhtentication required")
@@ -297,13 +223,10 @@ func (w *Wattpilot) onEventAuthRequired(message map[string]interface{}) {
 
 func (w *Wattpilot) onSendResponse(secured bool, message map[string]interface{}) error {
 
-	w._log.WithFields(log.Fields{"wattpilot": w._host}).Trace("Sending data to wattpilot")
-
-	w._readMutex.Lock()
-	defer w._readMutex.Unlock()
+	w._log.WithFields(log.Fields{"wattpilot": w._host}).Trace("Sending data to wattpilot: ", message["requestId"], " secured: ", secured)
 
 	if secured {
-		msgId := message["requestId"].(int)
+		msgId := message["requestId"].(int64)
 		payload, _ := json.Marshal(message)
 
 		mac := hmac.New(sha256.New, []byte(w._hashedpassword))
@@ -311,12 +234,11 @@ func (w *Wattpilot) onSendResponse(secured bool, message map[string]interface{})
 		message = make(map[string]interface{})
 		message["type"] = "securedMsg"
 		message["data"] = string(payload)
-		message["requestId"] = strconv.Itoa(msgId) + "sm"
+		message["requestId"] = fmt.Sprintf("%d", msgId) + "sm"
 		message["hmac"] = hex.EncodeToString(mac.Sum(nil))
 	}
 
 	data, _ := json.Marshal(message)
-
 	err := wsutil.WriteClientMessage(*w._currentConnection, ws.OpText, data)
 	if err != nil {
 		return err
@@ -344,9 +266,10 @@ func (w *Wattpilot) onEventResponse(message map[string]interface{}) {
 }
 
 func (w *Wattpilot) onEventAuthSuccess(message map[string]interface{}) {
-	w._log.WithFields(log.Fields{"wattpilot": w._host}).Info("Auhtentication successful")
 
+	w._log.WithFields(log.Fields{"wattpilot": w._host}).Info("Auhtentication successful")
 	w.connected <- true
+
 }
 
 func (w *Wattpilot) onEventAuthError(message map[string]interface{}) {
@@ -369,6 +292,8 @@ func (w *Wattpilot) onEventFullStatus(message map[string]interface{}) {
 		return
 	}
 
+	w._log.WithFields(log.Fields{"wattpilot": w._host}).Trace("Initialization done")
+
 	w.initialized <- true
 	w._isInitialized = true
 }
@@ -381,15 +306,14 @@ func (w *Wattpilot) onEventDeltaStatus(message map[string]interface{}) {
 
 func (w *Wattpilot) updateStatus(message map[string]interface{}) {
 
+	statusUpdates := message["status"].(map[string]interface{})
+	w._log.WithFields(log.Fields{"wattpilot": w._host}).Trace("Data-status gets updates #", len(statusUpdates))
+
 	w._readMutex.Lock()
 	defer w._readMutex.Unlock()
 
-	statusUpdates := message["status"].(map[string]interface{})
 	for k, v := range statusUpdates {
 		w._status[k] = v
-	}
-	w._log.WithFields(log.Fields{"wattpilot": w._host}).Trace("Sending notifications #", len(statusUpdates))
-	for k, v := range statusUpdates {
 		go w._notifications.Publish(k, v)
 	}
 }
@@ -405,13 +329,14 @@ func (w *Wattpilot) onEventUpdateInverter(message map[string]interface{}) {
 	w._log.WithFields(log.Fields{"wattpilot": w._host}).Trace("update inverters")
 }
 func (w *Wattpilot) Disconnect() {
+	w._log.WithFields(log.Fields{"wattpilot": w._host}).Info("Going to disconnect...")
 	w._isConnected = false
 	w.disconnectImpl()
 	<-w.interrupt
 }
 
 func (w *Wattpilot) disconnectImpl() {
-	w._log.WithFields(log.Fields{"wattpilot": w._host}).Info("Disconnecting")
+	w._log.WithFields(log.Fields{"wattpilot": w._host}).Info("Disconnecting...")
 
 	if !w._isInitialized {
 		return
@@ -421,23 +346,23 @@ func (w *Wattpilot) disconnectImpl() {
 		w._log.WithFields(log.Fields{"wattpilot": w._host}).Trace("Error on closing connection: ", err)
 	}
 
+	w._log.WithFields(log.Fields{"wattpilot": w._host}).Trace("closed connection")
+
 	w._isInitialized = false
 	w._isConnected = false
 	w._currentConnection = nil
 	w._status = make(map[string]interface{})
 
-	w._log.WithFields(log.Fields{"wattpilot": w._host}).Trace("closed connection")
-
 }
 
 func (w *Wattpilot) Connect() error {
-
-	w._log.WithFields(log.Fields{"wattpilot": w._host}).Info("Connecting")
 
 	if w._isConnected || w._isInitialized {
 		w._log.WithFields(log.Fields{"wattpilot": w._host}).Debug("Already Connected")
 		return nil
 	}
+
+	w._log.WithFields(log.Fields{"wattpilot": w._host}).Info("Connecting")
 
 	var err error
 	dialContext, cancel := context.WithTimeout(w._readContext, time.Second*CONTEXT_TIMEOUT)
@@ -469,7 +394,7 @@ func (w *Wattpilot) Connect() error {
 
 func (w *Wattpilot) reconnect() {
 
-	if w._isConnected {
+	if w._isConnected && !w._isInitialized {
 		w._log.WithFields(log.Fields{"wattpilot": w._host}).Info("Reconnect - Is still connected")
 		return
 	}
@@ -486,7 +411,7 @@ func (w *Wattpilot) reconnect() {
 
 func (w *Wattpilot) processLoop(ctx context.Context) {
 
-	w._log.WithFields(log.Fields{"wattpilot": w._host}).Info("Starting process loop...")
+	w._log.WithFields(log.Fields{"wattpilot": w._host}).Info("Starting processing loop...")
 	delayDuration := time.Duration(time.Second * CONTEXT_TIMEOUT)
 	delay := time.NewTimer(delayDuration)
 
@@ -560,14 +485,12 @@ func (w *Wattpilot) receiveHandler(ctx context.Context) {
 
 func (w *Wattpilot) GetProperty(name string) (interface{}, error) {
 
-	w._readMutex.Lock()
-	defer w._readMutex.Unlock()
-
 	w._log.WithFields(log.Fields{"wattpilot": w._host}).Debug("Get Property ", name)
 
 	if !w._isInitialized {
 		return nil, errors.New("connection is not valid")
 	}
+
 	origName := name
 	if v, isKnown := propertyMap[name]; isKnown {
 		name = v
@@ -576,6 +499,9 @@ func (w *Wattpilot) GetProperty(name string) (interface{}, error) {
 	if post {
 		name = m.key
 	}
+
+	w._readMutex.Lock()
+	defer w._readMutex.Unlock()
 
 	if !hasKey(w._status, name) {
 		return nil, errors.New("could not find value of " + name)
@@ -592,19 +518,18 @@ func (w *Wattpilot) SetProperty(name string, value interface{}) error {
 	w._log.WithFields(log.Fields{"wattpilot": w._host}).Debug("setting property ", name, " to ", value)
 
 	if !w._isInitialized {
-		return errors.New("connection is not valid")
+		return errors.New("Connection is not valid")
 	}
+
+	w._readMutex.Lock()
+	defer w._readMutex.Unlock()
 
 	if !hasKey(w._status, name) {
-		return errors.New("could not find reference for update on " + name)
+		return errors.New("Could not find reference for update on " + name)
 	}
 
-	err := w.sendUpdate(name, value)
-	if err != nil {
-		return err
-	}
+	return w.sendUpdate(name, value)
 
-	return nil
 }
 
 func (w *Wattpilot) transformValue(value interface{}) interface{} {
@@ -641,6 +566,10 @@ func (w *Wattpilot) sendUpdate(name string, value interface{}) error {
 	return w.onSendResponse(w._secured, message)
 
 }
+
+// --------------------------------
+// helper functions that wrap properties
+// --------------------------------
 
 func (w *Wattpilot) StatusInfo() {
 
