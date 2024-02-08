@@ -1,10 +1,25 @@
-<a name="v1.6.3"></a>
-# [v1.6.3](https://github.com/mabunixda/wattpilot/releases/tag/v1.6.3) - 18 Jan 2024
+<a name="v1.6.4"></a>
+# [v1.6.4](https://github.com/mabunixda/wattpilot/releases/tag/v1.6.4) - 28 Jan 2024
 
-## 1.6.3 (2024-01-18)
+## 1.6.4 (2024-01-28)
 
 #### Bug Fixes
 
+* process loop  (#30) (a5d4df5f)
+
+
+
+[Changes][v1.6.4]
+
+
+<a name="v1.6.3"></a>
+# [v1.6.3](https://github.com/mabunixda/wattpilot/releases/tag/v1.6.3) - 28 Jan 2024
+
+## 1.6.3 (2024-01-28)
+
+#### Bug Fixes
+
+* retract v1.6.3 (#29) (cbd99427)
 * using fullstatus Update pull after context timeout delay (#28) (d318e73a)
 
 #### Build
@@ -284,6 +299,7 @@
 [Changes][v1.0.0]
 
 
+[v1.6.4]: https://github.com/mabunixda/wattpilot/compare/v1.6.3...v1.6.4
 [v1.6.3]: https://github.com/mabunixda/wattpilot/compare/v1.6.2...v1.6.3
 [v1.6.2]: https://github.com/mabunixda/wattpilot/compare/v1.6.1...v1.6.2
 [v1.6.1]: https://github.com/mabunixda/wattpilot/compare/v1.6.0...v1.6.1
