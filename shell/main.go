@@ -134,6 +134,7 @@ func inConnect(w *api.Wattpilot, data []string) {
 	err := w.Connect()
 	if err != nil {
 		log.Println("Could not connect", err)
+		return
 	}
 	log.Printf("Connected to WattPilot %s, Serial %s", w.GetName(), w.GetSerial())
 }

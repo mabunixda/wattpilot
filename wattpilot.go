@@ -16,6 +16,7 @@ import (
 	"os/signal"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/gobwas/ws"
@@ -92,7 +93,7 @@ func (ps *Pubsub) Close() {
 
 type Wattpilot struct {
 	_currentConnection *net.Conn
-	_requestId         int
+	_requestId         int64
 	_name              string
 	_hostname          string
 	_serial            string
@@ -103,7 +104,7 @@ type Wattpilot struct {
 	_secured           bool
 	_readContext       context.Context
 	_readCancel        context.CancelFunc
-	_readMutex         sync.RWMutex
+	_readMutex         sync.Mutex
 
 	_token3         string
 	_hashedpassword string
@@ -140,7 +141,7 @@ func New(host string, password string) *Wattpilot {
 		_currentConnection: nil,
 		_isConnected:       false,
 		_isInitialized:     false,
-		_requestId:         1,
+		_requestId:         0,
 		_status:            make(map[string]interface{}),
 	}
 
@@ -233,13 +234,8 @@ func sha256sum(data string) string {
 	return fmt.Sprintf("%x", bs)
 }
 
-func (w *Wattpilot) getRequestId() int {
-	w._readMutex.RLock()
-	defer w._readMutex.RUnlock()
-	current := w._requestId
-	w._requestId += 1
-
-	return current
+func (w *Wattpilot) getRequestId() int64 {
+	return atomic.AddInt64(&w._requestId, 1)
 }
 
 func (w *Wattpilot) onEventHello(message map[string]interface{}) {
@@ -564,8 +560,8 @@ func (w *Wattpilot) receiveHandler(ctx context.Context) {
 
 func (w *Wattpilot) GetProperty(name string) (interface{}, error) {
 
-	w._readMutex.RLock()
-	defer w._readMutex.RUnlock()
+	w._readMutex.Lock()
+	defer w._readMutex.Unlock()
 
 	w._log.WithFields(log.Fields{"wattpilot": w._host}).Debug("Get Property ", name)
 
