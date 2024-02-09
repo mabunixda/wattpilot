@@ -1,3 +1,17 @@
+<a name="v1.6.5"></a>
+# [v1.6.5](https://github.com/mabunixda/wattpilot/releases/tag/v1.6.5) - 09 Feb 2024
+
+## 1.6.5 (2024-02-09)
+
+#### Bug Fixes
+
+* process loop and locks (#31) (1c59e45d)
+
+
+
+[Changes][v1.6.5]
+
+
 <a name="v1.6.4"></a>
 # [v1.6.4](https://github.com/mabunixda/wattpilot/releases/tag/v1.6.4) - 28 Jan 2024
 
@@ -299,6 +313,7 @@
 [Changes][v1.0.0]
 
 
+[v1.6.5]: https://github.com/mabunixda/wattpilot/compare/v1.6.4...v1.6.5
 [v1.6.4]: https://github.com/mabunixda/wattpilot/compare/v1.6.3...v1.6.4
 [v1.6.3]: https://github.com/mabunixda/wattpilot/compare/v1.6.2...v1.6.3
 [v1.6.2]: https://github.com/mabunixda/wattpilot/compare/v1.6.1...v1.6.2
