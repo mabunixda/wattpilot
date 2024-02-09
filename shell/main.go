@@ -22,7 +22,7 @@ var inputs = map[string]InputFunc{
 	"disconnect": inDisconnect,
 	"properties": inProperties,
 	"dump":       dumpData,
-	"level":      setLevel,
+	"log":        setLevel,
 	"update":     inUpdateStatus,
 }
 
@@ -134,6 +134,7 @@ func inConnect(w *api.Wattpilot, data []string) {
 	err := w.Connect()
 	if err != nil {
 		log.Println("Could not connect", err)
+		return
 	}
 	log.Printf("Connected to WattPilot %s, Serial %s", w.GetName(), w.GetSerial())
 }
@@ -142,9 +143,9 @@ func inDisconnect(w *api.Wattpilot, data []string) {
 	w.Disconnect()
 }
 
-func processUpdates(ups <-chan interface{}) {
-	updates = ups
-}
+// func processUpdates(ups <-chan interface{}) {
+// 	updates = ups
+// }
 
 var interrupt chan os.Signal
 
@@ -165,7 +166,7 @@ func main() {
 		fmt.Println("Could not update loglevel to", level, err)
 	}
 	// just a sample to test notification updates
-	processUpdates(w.GetNotifications("fhz"))
+	// processUpdates(w.GetNotifications("fhz"))
 	inConnect(w, nil)
 
 	w.StatusInfo()
