@@ -63,6 +63,17 @@ func newWattpilotCollector(charger *wattpilot.Wattpilot) *wattpilotCollector {
 			nil, constLabels,
 		)
 	}
+
+	for key := range wattpilot.PostProcess {
+		if metrics[key] != nil {
+			continue
+		}
+		metrics[key] = prometheus.NewDesc(
+			fmt.Sprintf(wattpilotPrefix, key),
+			fmt.Sprintf("Wattpilot property %s", key),
+			nil, constLabels,
+		)
+	}
 	return &wattpilotCollector{metrics: metrics, charger: charger}
 }
 
@@ -94,10 +105,12 @@ func (collector *wattpilotCollector) Collect(ch chan<- prometheus.Metric) {
 			if !data {
 				value = 0.0
 			}
+			break
 		default:
-			in_value := fmt.Sprintf("%v", value)
+			in_value := fmt.Sprintf("%v", data)
 			if out_value, err := strconv.ParseFloat(in_value, 64); err == nil {
 				value = out_value
+				break
 			}
 			continue
 		}
