@@ -1,3 +1,17 @@
+<a name="v1.6.6"></a>
+# [v1.6.6](https://github.com/mabunixda/wattpilot/releases/tag/v1.6.6) - 04 Mar 2024
+
+## 1.6.6 (2024-03-04)
+
+#### Bug Fixes
+
+* evcc/#12640 - go compile issues on non-64bit (#35) (0e622786)
+
+
+
+[Changes][v1.6.6]
+
+
 <a name="v1.6.5"></a>
 # [v1.6.5](https://github.com/mabunixda/wattpilot/releases/tag/v1.6.5) - 09 Feb 2024
 
@@ -313,6 +327,7 @@
 [Changes][v1.0.0]
 
 
+[v1.6.6]: https://github.com/mabunixda/wattpilot/compare/v1.6.5...v1.6.6
 [v1.6.5]: https://github.com/mabunixda/wattpilot/compare/v1.6.4...v1.6.5
 [v1.6.4]: https://github.com/mabunixda/wattpilot/compare/v1.6.3...v1.6.4
 [v1.6.3]: https://github.com/mabunixda/wattpilot/compare/v1.6.2...v1.6.3
