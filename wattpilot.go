@@ -34,19 +34,20 @@ const (
 type eventFunc func(map[string]interface{})
 
 type Wattpilot struct {
-	_currentConnection *net.Conn
-	_requestId         int64
-	_name              string
-	_hostname          string
-	_serial            string
-	_version           string
-	_manufacturer      string
-	_devicetype        string
-	_protocol          float64
-	_secured           bool
-	_readContext       context.Context
-	_readCancel        context.CancelFunc
-	_readMutex         sync.Mutex
+	_requestId    int64
+	connected     chan bool
+	initialized   chan bool
+	_secured      bool
+	_name         string
+	_hostname     string
+	_serial       string
+	_version      string
+	_manufacturer string
+	_devicetype   string
+	_protocol     float64
+	_readContext  context.Context
+	_readCancel   context.CancelFunc
+	_readMutex    sync.Mutex
 
 	_token3         string
 	_hashedpassword string
@@ -55,17 +56,15 @@ type Wattpilot struct {
 	_isInitialized  bool
 	_isConnected    bool
 	_status         map[string]interface{}
-	eventHandler    map[string]eventFunc
+	_eventHandler   map[string]eventFunc
 
-	connected    chan bool
-	initialized  chan bool
-	sendResponse chan string
-	interrupt    chan os.Signal
-	done         chan interface{}
+	_sendResponse chan string
+	_interrupt    chan os.Signal
+	_done         chan interface{}
 
-	_notifications *Pubsub
-
-	_log *log.Logger
+	_notifications     *Pubsub
+	_log               *log.Logger
+	_currentConnection *net.Conn
 }
 
 func New(host string, password string) *Wattpilot {
@@ -74,11 +73,11 @@ func New(host string, password string) *Wattpilot {
 		_host:     host,
 		_password: password,
 
-		connected:    make(chan bool),
-		initialized:  make(chan bool),
-		sendResponse: make(chan string),
-		done:         make(chan interface{}),
-		interrupt:    make(chan os.Signal),
+		connected:     make(chan bool),
+		initialized:   make(chan bool),
+		_sendResponse: make(chan string),
+		_done:         make(chan interface{}),
+		_interrupt:    make(chan os.Signal),
 
 		_currentConnection: nil,
 		_isConnected:       false,
@@ -98,11 +97,11 @@ func New(host string, password string) *Wattpilot {
 		}
 	}
 
-	signal.Notify(w.interrupt, os.Interrupt) // Notify the interrupt channel for SIGINT
+	signal.Notify(w._interrupt, os.Interrupt) // Notify the interrupt channel for SIGINT
 
 	w._notifications = NewPubsub()
 
-	w.eventHandler = map[string]eventFunc{
+	w._eventHandler = map[string]eventFunc{
 		"hello":          w.onEventHello,
 		"authRequired":   w.onEventAuthRequired,
 		"response":       w.onEventResponse,
@@ -260,7 +259,7 @@ func (w *Wattpilot) onEventResponse(message map[string]interface{}) {
 		return
 	}
 	if mType == "response" {
-		w.sendResponse <- message["message"].(string)
+		w._sendResponse <- message["message"].(string)
 		return
 	}
 }
@@ -332,7 +331,7 @@ func (w *Wattpilot) Disconnect() {
 	w._log.WithFields(log.Fields{"wattpilot": w._host}).Info("Going to disconnect...")
 	w._isConnected = false
 	w.disconnectImpl()
-	<-w.interrupt
+	<-w._interrupt
 }
 
 func (w *Wattpilot) disconnectImpl() {
@@ -440,7 +439,7 @@ func (w *Wattpilot) processLoop(ctx context.Context) {
 			break
 
 		case <-ctx.Done():
-		case <-w.interrupt:
+		case <-w._interrupt:
 			w._log.WithFields(log.Fields{"wattpilot": w._host}).Trace("Stopping process loop...")
 			w.disconnectImpl()
 			if !delay.Stop() {
@@ -473,7 +472,7 @@ func (w *Wattpilot) receiveHandler(ctx context.Context) {
 		}
 		w._log.WithFields(log.Fields{"wattpilot": w._host}).Trace("receiving ", msgType)
 
-		funcCall, isKnown := w.eventHandler[msgType.(string)]
+		funcCall, isKnown := w._eventHandler[msgType.(string)]
 		if !isKnown {
 			continue
 		}
