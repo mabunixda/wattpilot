@@ -6,7 +6,7 @@ import (
 
 type PostFunction func(interface{}) (string, error)
 
-var postProcess = map[string]struct {
+var PostProcess = map[string]struct {
 	key string
 	f   PostFunction
 }{
