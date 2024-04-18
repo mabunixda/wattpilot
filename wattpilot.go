@@ -492,7 +492,7 @@ func (w *Wattpilot) GetProperty(name string) (interface{}, error) {
 	if v, isKnown := propertyMap[name]; isKnown {
 		name = v
 	}
-	m, post := postProcess[origName]
+	m, post := PostProcess[origName]
 	if post {
 		name = m.key
 	}
