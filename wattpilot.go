@@ -487,7 +487,14 @@ func (w *Wattpilot) GetProperty(name string) (interface{}, error) {
 	w._log.WithFields(log.Fields{"wattpilot": w._host}).Debug("Get Property ", name)
 
 	if !w._isInitialized {
-		return nil, errors.New("connection is not valid")
+		if !w._isConnected {
+			w.reconnect()
+			return nil, errors.New("connection is not valid and not initialized, tried reconnect")
+		}
+		 connection not initialized-> close
+		w._isInitialized = true
+		w.disconnectImpl() 
+		return nil, errors.New("connection is not valid, connected but not initialized, disconnected")
 	}
 
 	origName := name
