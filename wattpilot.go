@@ -240,6 +240,7 @@ func (w *Wattpilot) onSendResponse(secured bool, message map[string]interface{})
 	data, _ := json.Marshal(message)
 	err := wsutil.WriteClientMessage(*w._currentConnection, ws.OpText, data)
 	if err != nil {
+		w._log.WithFields(log.Fields{"wattpilot": w._host}).Trace("Sending data to wattpilot: ", message["data"], " Error: ", err)
 		return err
 	}
 	return nil
@@ -305,7 +306,8 @@ func (w *Wattpilot) onEventDeltaStatus(message map[string]interface{}) {
 
 func (w *Wattpilot) updateStatus(message map[string]interface{}) {
 
-	statusUpdates := message["status"].(map[string]interface{})
+	w._log.WithFields(log.Fields{"wattpilot": w._host}).Trace("Enter Data-status updates ")
+	statusUpdates := message["status"].(map[string]interface{})	
 	w._log.WithFields(log.Fields{"wattpilot": w._host}).Trace("Data-status gets updates #", len(statusUpdates))
 
 	w._readMutex.Lock()
@@ -337,7 +339,9 @@ func (w *Wattpilot) Disconnect() {
 func (w *Wattpilot) disconnectImpl() {
 	w._log.WithFields(log.Fields{"wattpilot": w._host}).Info("Disconnecting...")
 
-	if !w._isInitialized {
+	if !w._isInitialized && w._currentConnection == nil {
+		w._log.WithFields(log.Fields{"wattpilot": w._host}).Trace("Error on closing connection cause of NIL pointer: ")
+		w._isConnected = false
 		return
 	}
 
@@ -362,12 +366,14 @@ func (w *Wattpilot) Connect() error {
 	}
 
 	w._log.WithFields(log.Fields{"wattpilot": w._host}).Info("Connecting")
-
+	w._readMutex.Lock()
+	
 	var err error
 	dialContext, cancel := context.WithTimeout(w._readContext, time.Second*CONTEXT_TIMEOUT)
 	defer cancel()
 	conn, reader, _, err := ws.DefaultDialer.Dial(dialContext, fmt.Sprintf("ws://%s/ws", w._host))
 	if err != nil {
+		w._readMutex.Unlock()
 		return err
 	}
 	w._currentConnection = &conn
@@ -379,13 +385,14 @@ func (w *Wattpilot) Connect() error {
 	w._isConnected = <-w.connected
 	w._log.WithFields(log.Fields{"wattpilot": w._host}).Trace("Connection is ", w._isConnected)
 	if !w._isConnected {
+		w._readMutex.Unlock()
 		return errors.New("could not connect")
 	}
 
 	w._log.WithFields(log.Fields{"wattpilot": w._host}).Trace("Connected - waiting for initializiation...")
-
+	w._readMutex.Unlock()
 	<-w.initialized
-
+	
 	w._log.WithFields(log.Fields{"wattpilot": w._host}).Trace("Connected - and initializiated")
 
 	return nil
@@ -397,7 +404,7 @@ func (w *Wattpilot) reconnect() {
 		w._log.WithFields(log.Fields{"wattpilot": w._host}).Info("Reconnect - Is still connected")
 		return
 	}
-
+	
 	w._log.WithFields(log.Fields{"wattpilot": w._host}).Debug("Reconnecting..")
 	time.Sleep(time.Second * time.Duration(RECONNECT_TIMEOUT))
 	if err := w.Connect(); err != nil {
@@ -420,7 +427,9 @@ func (w *Wattpilot) processLoop(ctx context.Context) {
 			delay.Reset(delayDuration)
 			if !w._isInitialized {
 				w._log.WithFields(log.Fields{"wattpilot": w._host}).Trace("No Hello there")
-				continue
+				w.disconnectImpl()
+				w.reconnect()
+				break
 			}
 			w._log.WithFields(log.Fields{"wattpilot": w._host}).Trace("Hello there")
 			go func() {
@@ -459,6 +468,8 @@ func (w *Wattpilot) receiveHandler(ctx context.Context) {
 		if err != nil {
 			// w._readCancel()
 			w._log.WithFields(log.Fields{"wattpilot": w._host}).Info("Stopping receive handler...")
+			w.disconnectImpl()
+			w.reconnect()
 			return
 		}
 		data := make(map[string]interface{})
