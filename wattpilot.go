@@ -241,6 +241,7 @@ func (w *Wattpilot) onSendResponse(secured bool, message map[string]interface{})
 	data, _ := json.Marshal(message)
 	err := w.conn.WriteMessage(websocket.TextMessage, data)
 	if err != nil {
+		w.logger.WithFields(log.Fields{"wattpilot": w.host}).Trace("Sending data to wattpilot: ", message["data"], " Error: ", err)
 		return err
 	}
 	return nil
@@ -307,6 +308,7 @@ func (w *Wattpilot) onEventDeltaStatus(message map[string]interface{}) {
 
 func (w *Wattpilot) updateStatus(message map[string]interface{}) {
 
+	w.logger.WithFields(log.Fields{"wattpilot": w.host}).Trace("Enter Data-status updates ")
 	statusUpdates := message["status"].(map[string]interface{})
 	w.logger.WithFields(log.Fields{"wattpilot": w.host}).Trace("Data-status gets updates #", len(statusUpdates))
 
@@ -339,7 +341,9 @@ func (w *Wattpilot) Disconnect() {
 func (w *Wattpilot) disconnectImpl() {
 	w.logger.WithFields(log.Fields{"wattpilot": w.host}).Info("Disconnecting...")
 
-	if !w.isInitialized {
+	if !w.isInitialized && w.conn == nil {
+		w.logger.WithFields(log.Fields{"wattpilot": w.host}).Trace("Error on closing connection cause of NIL pointer: ")
+		w.isConnected = false
 		return
 	}
 
@@ -364,11 +368,13 @@ func (w *Wattpilot) Connect() error {
 	}
 
 	w.logger.WithFields(log.Fields{"wattpilot": w.host}).Info("Connecting")
+	w.readMutex.Lock()
 
 	var err error
 
 	conn, _, err := websocket.DefaultDialer.Dial(fmt.Sprintf("ws://%s/ws", w.host), nil)
 	if err != nil {
+		w.readMutex.Unlock()
 		return err
 	}
 	w.conn = conn
@@ -377,11 +383,12 @@ func (w *Wattpilot) Connect() error {
 	w.isConnected = <-w.connected
 	w.logger.WithFields(log.Fields{"wattpilot": w.host}).Trace("Connection is ", w.isConnected)
 	if !w.isConnected {
+		w.readMutex.Unlock()
 		return errors.New("could not connect")
 	}
 
 	w.logger.WithFields(log.Fields{"wattpilot": w.host}).Trace("Connected - waiting for initializiation...")
-
+	w.readMutex.Unlock()
 	<-w.initialized
 
 	w.logger.WithFields(log.Fields{"wattpilot": w.host}).Trace("Connected - and initializiated")
@@ -418,7 +425,9 @@ func (w *Wattpilot) processLoop(ctx context.Context) {
 			delay.Reset(delayDuration)
 			if !w.isInitialized {
 				w.logger.WithFields(log.Fields{"wattpilot": w.host}).Trace("No Hello there")
-				continue
+				w.disconnectImpl()
+				w.reconnect()
+				break
 			}
 			w.logger.WithFields(log.Fields{"wattpilot": w.host}).Trace("Hello there")
 			go func() {
@@ -455,8 +464,10 @@ func (w *Wattpilot) receiveHandler(ctx context.Context) {
 	for {
 		_, msg, err := w.conn.ReadMessage()
 		if err != nil {
-			// w.readCancel()
-			w.logger.WithFields(log.Fields{"wattpilot": w.host}).Info("Stopping receive handler:", err)
+			// w._readCancel()
+			w.logger.WithFields(log.Fields{"wattpilot": w.host}).Info("Stopping receive handler...")
+			w.disconnectImpl()
+			w.reconnect()
 			return
 		}
 		data := make(map[string]interface{})
