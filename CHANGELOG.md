@@ -1,3 +1,17 @@
+<a name="v1.7.1"></a>
+# [v1.7.1](https://github.com/mabunixda/wattpilot/releases/tag/v1.7.1) - 15 May 2024
+
+## 1.7.1 (2024-05-15)
+
+#### Bug Fixes
+
+* Verbesserung des Reconnect Verhaltens (#43) (9155d01a)
+
+
+
+[Changes][v1.7.1]
+
+
 <a name="v1.7.0"></a>
 # [v1.7.0](https://github.com/mabunixda/wattpilot/releases/tag/v1.7.0) - 18 Apr 2024
 
@@ -345,6 +359,7 @@
 [Changes][v1.0.0]
 
 
+[v1.7.1]: https://github.com/mabunixda/wattpilot/compare/v1.7.0...v1.7.1
 [v1.7.0]: https://github.com/mabunixda/wattpilot/compare/v1.6.6...v1.7.0
 [v1.6.6]: https://github.com/mabunixda/wattpilot/compare/v1.6.5...v1.6.6
 [v1.6.5]: https://github.com/mabunixda/wattpilot/compare/v1.6.4...v1.6.5
