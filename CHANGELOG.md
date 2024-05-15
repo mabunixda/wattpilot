@@ -1,3 +1,17 @@
+<a name="v1.7.2"></a>
+# [v1.7.2](https://github.com/mabunixda/wattpilot/releases/tag/v1.7.2) - 15 May 2024
+
+## 1.7.2 (2024-05-15)
+
+#### Bug Fixes
+
+* Evcc 12640 (#39) (76be8b4b)
+
+
+
+[Changes][v1.7.2]
+
+
 <a name="v1.7.1"></a>
 # [v1.7.1](https://github.com/mabunixda/wattpilot/releases/tag/v1.7.1) - 15 May 2024
 
@@ -359,6 +373,7 @@
 [Changes][v1.0.0]
 
 
+[v1.7.2]: https://github.com/mabunixda/wattpilot/compare/v1.7.1...v1.7.2
 [v1.7.1]: https://github.com/mabunixda/wattpilot/compare/v1.7.0...v1.7.1
 [v1.7.0]: https://github.com/mabunixda/wattpilot/compare/v1.6.6...v1.7.0
 [v1.6.6]: https://github.com/mabunixda/wattpilot/compare/v1.6.5...v1.6.6
