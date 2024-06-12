@@ -49,9 +49,7 @@ type Wattpilot struct {
 	initialized chan bool
 	secured     bool
 
-	readContext context.Context
-	readCancel  context.CancelFunc
-	readMutex   sync.Mutex
+	readMutex sync.Mutex
 
 	host           string
 	password       string
@@ -87,8 +85,6 @@ func New(host string, password string) *Wattpilot {
 		requestId:     0,
 		data:          make(map[string]interface{}),
 	}
-
-	w.readContext, w.readCancel = context.WithCancel(context.Background())
 
 	w.logger = log.New()
 	w.logger.SetFormatter(&log.JSONFormatter{})
@@ -378,7 +374,7 @@ func (w *Wattpilot) Connect() error {
 		return err
 	}
 	w.conn = conn
-	go w.receiveHandler(w.readContext)
+	go w.receiveHandler()
 
 	w.isConnected = <-w.connected
 	w.logger.WithFields(log.Fields{"wattpilot": w.host}).Trace("Connection is ", w.isConnected)
@@ -439,11 +435,6 @@ func (w *Wattpilot) processLoop(ctx context.Context) {
 				}
 			}()
 			break
-		case <-w.readContext.Done():
-			w.logger.WithFields(log.Fields{"wattpilot": w.host}).Trace("Read context is done")
-			w.disconnectImpl()
-			w.reconnect()
-			break
 
 		case <-ctx.Done():
 		case <-w.interrupt:
@@ -457,14 +448,13 @@ func (w *Wattpilot) processLoop(ctx context.Context) {
 	}
 }
 
-func (w *Wattpilot) receiveHandler(ctx context.Context) {
+func (w *Wattpilot) receiveHandler() {
 
 	w.logger.WithFields(log.Fields{"wattpilot": w.host}).Info("Starting receive handler...")
 
 	for {
 		_, msg, err := w.conn.ReadMessage()
 		if err != nil {
-			// w._readCancel()
 			w.logger.WithFields(log.Fields{"wattpilot": w.host}).Info("Stopping receive handler...")
 			w.disconnectImpl()
 			w.reconnect()
