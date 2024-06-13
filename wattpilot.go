@@ -91,7 +91,7 @@ func New(host string, password string) *Wattpilot {
 
 	w.logger.SetFormatter(&log.JSONFormatter{})
 	w.logger.SetLevel(log.ErrorLevel)
-	if level := os.Getenv("WATTPILOTlogger"); level != "" {
+	if level := os.Getenv("WATTPILOT_LOG"); level != "" {
 		if err := w.ParseLogLevel(level); err != nil {
 			w.logger.Warn("Could not parse log level setting ", err)
 		}
