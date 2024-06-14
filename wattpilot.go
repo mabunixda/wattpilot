@@ -50,7 +50,8 @@ type Wattpilot struct {
 	initialized chan bool
 	secured     bool
 
-	readMutex sync.Mutex
+	readMutex      sync.Mutex
+	connWriteMutex sync.Mutex
 
 	host           string
 	password       string
@@ -483,7 +484,6 @@ func (w *Wattpilot) receiveHandler() {
 	w.logger.WithFields(log.Fields{"wattpilot": w.host}).Info("Starting receive handler...")
 
 	for {
-
 		_, msg, err := w.conn.ReadMessage()
 		if err != nil {
 			w.logger.WithFields(log.Fields{"wattpilot": w.host}).Info("Stopping receive handler...")
@@ -574,6 +574,9 @@ func (w *Wattpilot) onSendResponse(secured bool, message map[string]interface{})
 	}
 
 	data, _ := json.Marshal(message)
+
+	w.connWriteMutex.Lock()
+	defer w.connWriteMutex.Unlock()
 	err := w.conn.WriteMessage(websocket.TextMessage, data)
 	if err != nil {
 		w.logger.WithFields(log.Fields{"wattpilot": w.host}).Trace("Sending data to wattpilot: ", message["data"], " Error: ", err)
