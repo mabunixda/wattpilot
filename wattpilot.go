@@ -234,6 +234,9 @@ func (w *Wattpilot) transformValue(value interface{}) interface{} {
 		return value
 	}
 	in_value := fmt.Sprintf("%v", value)
+	if in_value == "nil" || in_value == "null" {
+		return nil
+	}
 	if out_value, err := strconv.Atoi(in_value); err == nil {
 		return out_value
 	}
