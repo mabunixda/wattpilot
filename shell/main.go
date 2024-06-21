@@ -24,6 +24,7 @@ var inputs = map[string]InputFunc{
 	"dump":       dumpData,
 	"log":        setLevel,
 	"update":     inUpdateStatus,
+	"reconnect":  inReconnect,
 }
 
 func setLevel(w *api.Wattpilot, data []string) {
@@ -38,6 +39,13 @@ func setLevel(w *api.Wattpilot, data []string) {
 func inUpdateStatus(w *api.Wattpilot, data []string) {
 	if err := w.RequestStatusUpdate(); err != nil {
 		fmt.Println("error on update: ", err)
+	}
+}
+
+func inReconnect(w *api.Wattpilot, data []string) {
+	w.Disconnect()
+	if err := w.Connect(); err != nil {
+		fmt.Println("error on connect: ", err)
 	}
 }
 
