@@ -1,3 +1,17 @@
+<a name="v1.8.0"></a>
+# [v1.8.0](https://github.com/mabunixda/wattpilot/releases/tag/v1.8.0) - 21 Jun 2024
+
+## 1.8.0 (2024-06-21)
+
+#### Feature
+
+* deadlock refactoring (#45) (c1db015b)
+
+
+
+[Changes][v1.8.0]
+
+
 <a name="v1.7.2"></a>
 # [v1.7.2](https://github.com/mabunixda/wattpilot/releases/tag/v1.7.2) - 15 May 2024
 
@@ -373,6 +387,7 @@
 [Changes][v1.0.0]
 
 
+[v1.8.0]: https://github.com/mabunixda/wattpilot/compare/v1.7.2...v1.8.0
 [v1.7.2]: https://github.com/mabunixda/wattpilot/compare/v1.7.1...v1.7.2
 [v1.7.1]: https://github.com/mabunixda/wattpilot/compare/v1.7.0...v1.7.1
 [v1.7.0]: https://github.com/mabunixda/wattpilot/compare/v1.6.6...v1.7.0
