@@ -18,9 +18,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/gorilla/websocket"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/crypto/pbkdf2"
+	"nhooyr.io/websocket"
 )
 
 const (
@@ -50,8 +50,7 @@ type Wattpilot struct {
 	initialized chan bool
 	secured     bool
 
-	readMutex      sync.Mutex
-	connWriteMutex sync.Mutex
+	readMutex sync.Mutex
 
 	host           string
 	password       string
@@ -379,7 +378,7 @@ func (w *Wattpilot) Connect() error {
 	w.logger.WithFields(log.Fields{"wattpilot": w.host}).Info("Connecting")
 	var err error
 
-	conn, _, err := websocket.DefaultDialer.Dial(fmt.Sprintf("ws://%s/ws", w.host), nil)
+	conn, _, err := websocket.Dial(context.Background(), fmt.Sprintf("ws://%s/ws", w.host), nil)
 	if err != nil {
 		return err
 	}
@@ -437,7 +436,7 @@ func (w *Wattpilot) disconnectImpl() {
 
 	if w.conn != nil {
 		w.logger.WithFields(log.Fields{"wattpilot": w.host}).Trace("Closing connection...")
-		if err := (*w.conn).Close(); err != nil {
+		if err := (*w.conn).CloseNow(); err != nil {
 			w.logger.WithFields(log.Fields{"wattpilot": w.host}).Trace("Error on closing connection: ", err)
 		}
 	}
@@ -487,7 +486,7 @@ func (w *Wattpilot) receiveHandler() {
 	w.logger.WithFields(log.Fields{"wattpilot": w.host}).Info("Starting receive handler...")
 
 	for {
-		_, msg, err := w.conn.ReadMessage()
+		_, msg, err := w.conn.Read(context.Background())
 		if err != nil {
 			w.logger.WithFields(log.Fields{"wattpilot": w.host}).Info("Stopping receive handler...")
 			return
@@ -578,9 +577,7 @@ func (w *Wattpilot) onSendResponse(secured bool, message map[string]interface{})
 
 	data, _ := json.Marshal(message)
 
-	w.connWriteMutex.Lock()
-	defer w.connWriteMutex.Unlock()
-	err := w.conn.WriteMessage(websocket.TextMessage, data)
+	err := w.conn.Write(context.Background(), websocket.MessageText, data)
 	if err != nil {
 		w.logger.WithFields(log.Fields{"wattpilot": w.host}).Trace("Sending data to wattpilot: ", message["data"], " Error: ", err)
 		return err
