@@ -50,7 +50,8 @@ type Wattpilot struct {
 	initialized chan bool
 	secured     bool
 
-	readMutex sync.Mutex
+	readMutex  sync.Mutex
+	writeMutex sync.Mutex
 
 	host           string
 	password       string
@@ -559,6 +560,9 @@ func (w *Wattpilot) onEventAuthRequired(message map[string]interface{}) {
 }
 
 func (w *Wattpilot) onSendResponse(secured bool, message map[string]interface{}) error {
+
+	w.writeMutex.Lock()
+	defer w.writeMutex.Unlock()
 
 	w.logger.WithFields(log.Fields{"wattpilot": w.host}).Trace("Sending data to wattpilot: ", message["requestId"], " secured: ", secured)
 
