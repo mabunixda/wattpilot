@@ -1,3 +1,17 @@
+<a name="v1.8.1"></a>
+# [v1.8.1](https://github.com/mabunixda/wattpilot/releases/tag/v1.8.1) - 09 Jul 2024
+
+## 1.8.1 (2024-07-09)
+
+#### Bug Fixes
+
+* Replacing websocket library (#46) (83add7a3)
+
+
+
+[Changes][v1.8.1]
+
+
 <a name="v1.8.0"></a>
 # [v1.8.0](https://github.com/mabunixda/wattpilot/releases/tag/v1.8.0) - 21 Jun 2024
 
@@ -387,6 +401,7 @@
 [Changes][v1.0.0]
 
 
+[v1.8.1]: https://github.com/mabunixda/wattpilot/compare/v1.8.0...v1.8.1
 [v1.8.0]: https://github.com/mabunixda/wattpilot/compare/v1.7.2...v1.8.0
 [v1.7.2]: https://github.com/mabunixda/wattpilot/compare/v1.7.1...v1.7.2
 [v1.7.1]: https://github.com/mabunixda/wattpilot/compare/v1.7.0...v1.7.1
