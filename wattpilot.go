@@ -115,6 +115,10 @@ func New(host string, password string) *Wattpilot {
 	return w
 
 }
+func (w *Wattpilot) SetLogger(logger *log.Logger) {
+	w.logger = logger
+}
+
 func (w *Wattpilot) SetLogLevel(level log.Level) {
 	w.logger.SetLevel(level)
 }
