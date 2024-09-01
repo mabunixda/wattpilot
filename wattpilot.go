@@ -18,7 +18,8 @@ import (
 	"syscall"
 	"time"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/apex/log"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/crypto/pbkdf2"
 	"nhooyr.io/websocket"
 )
@@ -65,7 +66,7 @@ type Wattpilot struct {
 	interrupt    chan os.Signal
 
 	notify *Pubsub
-	logger *log.Logger
+	logger *logrus.Logger
 	conn   *websocket.Conn
 }
 
@@ -86,12 +87,12 @@ func New(host string, password string) *Wattpilot {
 		isInitialized: false,
 		requestId:     0,
 		data:          make(map[string]interface{}),
-		logger:        log.New(),
+		logger:        logrus.New(),
 		notify:        NewPubsub(),
 	}
 
-	w.logger.SetFormatter(&log.JSONFormatter{})
-	w.logger.SetLevel(log.ErrorLevel)
+	w.logger.SetFormatter(&logrus.JSONFormatter{})
+	w.logger.SetLevel(logrus.ErrorLevel)
 	if level := os.Getenv("WATTPILOT_LOG"); level != "" {
 		if err := w.ParseLogLevel(level); err != nil {
 			w.logger.Warn("Could not parse log level setting ", err)
@@ -116,15 +117,15 @@ func New(host string, password string) *Wattpilot {
 
 }
 func (w *Wattpilot) SetLogger(logger *log.Logger) {
-	w.logger = logger
+	w.logger.SetOutput(logger)
 }
 
-func (w *Wattpilot) SetLogLevel(level log.Level) {
+func (w *Wattpilot) SetLogLevel(level logrus.Level) {
 	w.logger.SetLevel(level)
 }
 
 func (w *Wattpilot) ParseLogLevel(level string) error {
-	loglevel, err := log.ParseLevel(level)
+	loglevel, err := logrus.ParseLevel(level)
 	if err != nil {
 		return err
 	}
