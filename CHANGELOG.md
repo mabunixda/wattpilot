@@ -1,3 +1,17 @@
+<a name="v1.8.2"></a>
+# [v1.8.2](https://github.com/mabunixda/wattpilot/releases/tag/v1.8.2) - 04 Sep 2024
+
+## 1.8.2 (2024-09-04)
+
+#### Bug Fixes
+
+* Adding Log routines (#47) (b1892a3b)
+
+
+
+[Changes][v1.8.2]
+
+
 <a name="v1.8.1"></a>
 # [v1.8.1](https://github.com/mabunixda/wattpilot/releases/tag/v1.8.1) - 09 Jul 2024
 
@@ -401,6 +415,7 @@
 [Changes][v1.0.0]
 
 
+[v1.8.2]: https://github.com/mabunixda/wattpilot/compare/v1.8.1...v1.8.2
 [v1.8.1]: https://github.com/mabunixda/wattpilot/compare/v1.8.0...v1.8.1
 [v1.8.0]: https://github.com/mabunixda/wattpilot/compare/v1.7.2...v1.8.0
 [v1.7.2]: https://github.com/mabunixda/wattpilot/compare/v1.7.1...v1.7.2
