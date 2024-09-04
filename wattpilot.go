@@ -124,10 +124,7 @@ func (w *Wattpilot) SetLogger(logger *log.Logger) {
 	w.logger.AddHook(&logruswriter.Hook{
 		Writer: logger.Writer(),
 		LogLevels: []logrus.Level{
-			logrus.PanicLevel,
-			logrus.FatalLevel,
-			logrus.ErrorLevel,
-			logrus.WarnLevel,
+			logrus.TraceLevel,
 		},
 	})
 }
