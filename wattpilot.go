@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"os/signal"
 	"strconv"
@@ -18,7 +19,7 @@ import (
 	"syscall"
 	"time"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/crypto/pbkdf2"
 	"nhooyr.io/websocket"
 )
@@ -65,7 +66,7 @@ type Wattpilot struct {
 	interrupt    chan os.Signal
 
 	notify *Pubsub
-	logger *log.Logger
+	logger *logrus.Logger
 	conn   *websocket.Conn
 }
 
@@ -86,12 +87,12 @@ func New(host string, password string) *Wattpilot {
 		isInitialized: false,
 		requestId:     0,
 		data:          make(map[string]interface{}),
-		logger:        log.New(),
+		logger:        logrus.New(),
 		notify:        NewPubsub(),
 	}
 
-	w.logger.SetFormatter(&log.JSONFormatter{})
-	w.logger.SetLevel(log.ErrorLevel)
+	w.logger.SetFormatter(&logrus.JSONFormatter{})
+	w.logger.SetLevel(logrus.ErrorLevel)
 	if level := os.Getenv("WATTPILOT_LOG"); level != "" {
 		if err := w.ParseLogLevel(level); err != nil {
 			w.logger.Warn("Could not parse log level setting ", err)
@@ -115,12 +116,17 @@ func New(host string, password string) *Wattpilot {
 	return w
 
 }
-func (w *Wattpilot) SetLogLevel(level log.Level) {
+func (w *Wattpilot) SetLogger(logger *log.Logger) {
+	w.logger.Out = logger.Writer()
+	// w.logger.SetOutput(logger)
+}
+
+func (w *Wattpilot) SetLogLevel(level logrus.Level) {
 	w.logger.SetLevel(level)
 }
 
 func (w *Wattpilot) ParseLogLevel(level string) error {
-	loglevel, err := log.ParseLevel(level)
+	loglevel, err := logrus.ParseLevel(level)
 	if err != nil {
 		return err
 	}
@@ -176,7 +182,7 @@ func (w *Wattpilot) GetNotifications(prop string) <-chan interface{} {
 
 func (w *Wattpilot) GetProperty(name string) (interface{}, error) {
 
-	w.logger.WithFields(log.Fields{"wattpilot": w.host}).Debug("Get Property ", name)
+	w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Debug("Get Property ", name)
 
 	if !w.isInitialized {
 		return nil, errors.New("connection is not valid")
@@ -206,7 +212,7 @@ func (w *Wattpilot) GetProperty(name string) (interface{}, error) {
 
 func (w *Wattpilot) SetProperty(name string, value interface{}) error {
 
-	w.logger.WithFields(log.Fields{"wattpilot": w.host}).Debug("setting property ", name, " to ", value)
+	w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Debug("setting property ", name, " to ", value)
 
 	if !w.isInitialized {
 		return errors.New("connection is not valid")
@@ -357,7 +363,7 @@ func (w *Wattpilot) GetCarIdentifier() (string, error) {
 }
 
 func (w *Wattpilot) RequestStatusUpdate() error {
-	w.logger.WithFields(log.Fields{"wattpilot": w.host}).Debug("requesting status update...")
+	w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Debug("requesting status update...")
 
 	message := make(map[string]interface{})
 	message["type"] = "requestFullStatus"
@@ -372,11 +378,11 @@ func (w *Wattpilot) RequestStatusUpdate() error {
 func (w *Wattpilot) Connect() error {
 
 	if w.isConnected || w.isInitialized {
-		w.logger.WithFields(log.Fields{"wattpilot": w.host}).Debug("Already Connected")
+		w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Debug("Already Connected")
 		return nil
 	}
 
-	w.logger.WithFields(log.Fields{"wattpilot": w.host}).Info("Connecting")
+	w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Info("Connecting")
 	var err error
 
 	conn, _, err := websocket.Dial(context.Background(), fmt.Sprintf("ws://%s/ws", w.host), nil)
@@ -388,18 +394,18 @@ func (w *Wattpilot) Connect() error {
 	go w.processLoop(context.Background())
 	go w.receiveHandler()
 
-	w.logger.WithFields(log.Fields{"wattpilot": w.host}).Trace("Waiting on initial handshake and authentication")
+	w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Trace("Waiting on initial handshake and authentication")
 	w.isConnected = <-w.connected
-	w.logger.WithFields(log.Fields{"wattpilot": w.host}).Trace("Connection is ", w.isConnected)
+	w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Trace("Connection is ", w.isConnected)
 	if !w.isConnected {
 		return errors.New("could not connect")
 	}
 
-	w.logger.WithFields(log.Fields{"wattpilot": w.host}).Trace("Connected - waiting for initializiation...")
+	w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Trace("Connected - waiting for initializiation...")
 
 	<-w.initialized
 
-	w.logger.WithFields(log.Fields{"wattpilot": w.host}).Trace("Connected - and initializiated")
+	w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Trace("Connected - and initializiated")
 
 	return nil
 }
@@ -409,40 +415,40 @@ func (w *Wattpilot) reconnect() {
 	if w.isConnected {
 		err := w.RequestStatusUpdate()
 		if err == nil && w.isInitialized {
-			w.logger.WithFields(log.Fields{"wattpilot": w.host}).Info("reconnect - valid connection")
+			w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Info("reconnect - valid connection")
 			return
 		}
-		w.logger.WithFields(log.Fields{"wattpilot": w.host}).Error("Full Status Update failed: ", err)
+		w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Error("Full Status Update failed: ", err)
 		w.disconnectImpl()
 	}
 
-	w.logger.WithFields(log.Fields{"wattpilot": w.host}).Debug("Reconnecting..")
+	w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Debug("Reconnecting..")
 
 	if err := w.Connect(); err != nil {
-		w.logger.WithFields(log.Fields{"wattpilot": w.host}).Debug("Reconnect failure: ", err)
+		w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Debug("Reconnect failure: ", err)
 		return
 	}
-	w.logger.WithFields(log.Fields{"wattpilot": w.host}).Info("Successfully reconnected")
+	w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Info("Successfully reconnected")
 
 }
 
 func (w *Wattpilot) Disconnect() {
-	w.logger.WithFields(log.Fields{"wattpilot": w.host}).Info("Going to disconnect...")
+	w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Info("Going to disconnect...")
 	w.disconnectImpl()
 	w.interrupt <- syscall.SIGINT
 }
 
 func (w *Wattpilot) disconnectImpl() {
-	w.logger.WithFields(log.Fields{"wattpilot": w.host}).Info("Disconnecting...")
+	w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Info("Disconnecting...")
 
 	if w.conn != nil {
-		w.logger.WithFields(log.Fields{"wattpilot": w.host}).Trace("Closing connection...")
+		w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Trace("Closing connection...")
 		if err := (*w.conn).CloseNow(); err != nil {
-			w.logger.WithFields(log.Fields{"wattpilot": w.host}).Trace("Error on closing connection: ", err)
+			w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Trace("Error on closing connection: ", err)
 		}
 	}
 
-	w.logger.WithFields(log.Fields{"wattpilot": w.host}).Trace("Closed Connection")
+	w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Trace("Closed Connection")
 
 	w.isInitialized = false
 	w.isConnected = false
@@ -452,14 +458,14 @@ func (w *Wattpilot) disconnectImpl() {
 
 func (w *Wattpilot) processLoop(ctx context.Context) {
 
-	w.logger.WithFields(log.Fields{"wattpilot": w.host}).Info("Starting processing loop...")
+	w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Info("Starting processing loop...")
 	delayDuration := time.Duration(time.Second * ContextTimeout)
 	delay := time.NewTimer(delayDuration)
 
 	for {
 		select {
 		case <-delay.C:
-			w.logger.WithFields(log.Fields{"wattpilot": w.host}).Debug("Hello...")
+			w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Debug("Hello...")
 
 			delay.Reset(delayDuration)
 
@@ -470,13 +476,13 @@ func (w *Wattpilot) processLoop(ctx context.Context) {
 
 		case <-ctx.Done():
 		case <-w.interrupt:
-			w.logger.WithFields(log.Fields{"wattpilot": w.host}).Trace("Stopping process loop...")
+			w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Trace("Stopping process loop...")
 			w.disconnectImpl()
 			if !delay.Stop() {
-				w.logger.WithFields(log.Fields{"wattpilot": w.host}).Trace("Waiting on delay...")
+				w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Trace("Waiting on delay...")
 				// <-delay.C
 			}
-			w.logger.WithFields(log.Fields{"wattpilot": w.host}).Trace("Stopped process loop...")
+			w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Trace("Stopped process loop...")
 			return
 		}
 	}
@@ -484,12 +490,12 @@ func (w *Wattpilot) processLoop(ctx context.Context) {
 
 func (w *Wattpilot) receiveHandler() {
 
-	w.logger.WithFields(log.Fields{"wattpilot": w.host}).Info("Starting receive handler...")
+	w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Info("Starting receive handler...")
 
 	for {
 		_, msg, err := w.conn.Read(context.Background())
 		if err != nil {
-			w.logger.WithFields(log.Fields{"wattpilot": w.host}).Info("Stopping receive handler...")
+			w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Info("Stopping receive handler...")
 			return
 		}
 		data := make(map[string]interface{})
@@ -501,21 +507,21 @@ func (w *Wattpilot) receiveHandler() {
 		if !isTypeAvailable {
 			continue
 		}
-		w.logger.WithFields(log.Fields{"wattpilot": w.host}).Trace("receiving ", msgType)
+		w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Trace("receiving ", msgType)
 
 		funcCall, isKnown := w.eventHandler[msgType.(string)]
 		if !isKnown {
 			continue
 		}
 		funcCall(data)
-		w.logger.WithFields(log.Fields{"wattpilot": w.host}).Trace("done ", msgType)
+		w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Trace("done ", msgType)
 	}
 
 }
 
 func (w *Wattpilot) onEventHello(message map[string]interface{}) {
 
-	w.logger.WithFields(log.Fields{"wattpilot": w.host}).Info("Hello from Wattpilot")
+	w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Info("Hello from Wattpilot")
 
 	if hasKey(message, "hostname") {
 		w.hostname = message["hostname"].(string)
@@ -539,7 +545,7 @@ func (w *Wattpilot) onEventHello(message map[string]interface{}) {
 
 func (w *Wattpilot) onEventAuthRequired(message map[string]interface{}) {
 
-	w.logger.WithFields(log.Fields{"wattpilot": w.host}).Info("Auhtentication required")
+	w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Info("Auhtentication required")
 
 	pwd_data := pbkdf2.Key([]byte(w.password), []byte(w.serial), 100000, 256, sha512.New)
 	w.hashedpassword = base64.StdEncoding.EncodeToString([]byte(pwd_data))[:32]
@@ -564,7 +570,7 @@ func (w *Wattpilot) onSendResponse(secured bool, message map[string]interface{})
 	w.writeMutex.Lock()
 	defer w.writeMutex.Unlock()
 
-	w.logger.WithFields(log.Fields{"wattpilot": w.host}).Trace("Sending data to wattpilot: ", message["requestId"], " secured: ", secured)
+	w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Trace("Sending data to wattpilot: ", message["requestId"], " secured: ", secured)
 
 	if secured {
 		msgId := message["requestId"].(int64)
@@ -583,7 +589,7 @@ func (w *Wattpilot) onSendResponse(secured bool, message map[string]interface{})
 
 	err := w.conn.Write(context.Background(), websocket.MessageText, data)
 	if err != nil {
-		w.logger.WithFields(log.Fields{"wattpilot": w.host}).Trace("Sending data to wattpilot: ", message["data"], " Error: ", err)
+		w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Trace("Sending data to wattpilot: ", message["data"], " Error: ", err)
 		return err
 	}
 	return nil
@@ -591,7 +597,7 @@ func (w *Wattpilot) onSendResponse(secured bool, message map[string]interface{})
 
 func (w *Wattpilot) onEventResponse(message map[string]interface{}) {
 
-	w.logger.WithFields(log.Fields{"wattpilot": w.host}).Trace("Response on Event ", message["type"])
+	w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Trace("Response on Event ", message["type"])
 
 	mType := message["type"].(string)
 	success, ok := message["success"]
@@ -599,7 +605,7 @@ func (w *Wattpilot) onEventResponse(message map[string]interface{}) {
 		return
 	}
 	if !success.(bool) {
-		w.logger.WithFields(log.Fields{"wattpilot": w.host}).Error("Failure happened: ", message["message"])
+		w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Error("Failure happened: ", message["message"])
 		return
 	}
 	if mType == "response" {
@@ -610,19 +616,19 @@ func (w *Wattpilot) onEventResponse(message map[string]interface{}) {
 
 func (w *Wattpilot) onEventAuthSuccess(message map[string]interface{}) {
 
-	w.logger.WithFields(log.Fields{"wattpilot": w.host}).Info("Auhtentication successful")
+	w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Info("Auhtentication successful")
 	w.connected <- true
 
 }
 
 func (w *Wattpilot) onEventAuthError(message map[string]interface{}) {
-	w.logger.WithFields(log.Fields{"wattpilot": w.host}).Error("Auhtentication error", message)
+	w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Error("Auhtentication error", message)
 	w.connected <- false
 }
 
 func (w *Wattpilot) onEventFullStatus(message map[string]interface{}) {
 
-	w.logger.WithFields(log.Fields{"wattpilot": w.host}).Trace("Full status update - is partial: ", message["partial"])
+	w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Trace("Full status update - is partial: ", message["partial"])
 
 	isPartial := message["partial"].(bool)
 
@@ -635,7 +641,7 @@ func (w *Wattpilot) onEventFullStatus(message map[string]interface{}) {
 		return
 	}
 
-	w.logger.WithFields(log.Fields{"wattpilot": w.host}).Trace("Initialization done")
+	w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Trace("Initialization done")
 
 	w.initialized <- true
 	w.isInitialized = true
@@ -643,16 +649,16 @@ func (w *Wattpilot) onEventFullStatus(message map[string]interface{}) {
 
 func (w *Wattpilot) onEventDeltaStatus(message map[string]interface{}) {
 
-	w.logger.WithFields(log.Fields{"wattpilot": w.host}).Trace("Delta status update")
+	w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Trace("Delta status update")
 	w.updateStatus(message)
 
 }
 
 func (w *Wattpilot) updateStatus(message map[string]interface{}) {
 
-	w.logger.WithFields(log.Fields{"wattpilot": w.host}).Trace("Enter Data-status updates")
+	w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Trace("Enter Data-status updates")
 	statusUpdates := message["status"].(map[string]interface{})
-	w.logger.WithFields(log.Fields{"wattpilot": w.host}).Trace("Data-status gets updates #", len(statusUpdates))
+	w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Trace("Data-status gets updates #", len(statusUpdates))
 
 	w.readMutex.Lock()
 	defer w.readMutex.Unlock()
@@ -664,10 +670,10 @@ func (w *Wattpilot) updateStatus(message map[string]interface{}) {
 }
 
 func (w *Wattpilot) onEventClearInverters(message map[string]interface{}) {
-	w.logger.WithFields(log.Fields{"wattpilot": w.host}).Trace("clear inverters")
+	w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Trace("clear inverters")
 }
 func (w *Wattpilot) onEventUpdateInverter(message map[string]interface{}) {
-	w.logger.WithFields(log.Fields{"wattpilot": w.host}).Trace("update inverters")
+	w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Trace("update inverters")
 }
 
 func (w *Wattpilot) sendUpdate(name string, value interface{}) error {
