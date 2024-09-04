@@ -118,7 +118,7 @@ func New(host string, password string) *Wattpilot {
 }
 func (w *Wattpilot) SetLogger(logger *log.Logger) {
 	w.logger.Out = logger.Writer()
-	// w.logger.SetOutput(logger)
+	w.logger.SetFormatter(&logrus.TextFormatter{})
 }
 
 func (w *Wattpilot) SetLogLevel(level logrus.Level) {
