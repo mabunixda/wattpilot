@@ -10,11 +10,7 @@ type CallHook struct {
 }
 
 func (hook *CallHook) Fire(entry *log.Entry) error {
-	line, err := entry.Bytes()
-	if err != nil {
-		return err
-	}
-	hook.Call(entry.Level.String(), string(line))
+	hook.Call(entry.Level.String(), entry.Message)
 	return nil
 }
 
