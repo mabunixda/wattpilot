@@ -231,6 +231,7 @@ func (w *Wattpilot) SetProperty(name string, value interface{}) error {
 func (w *Wattpilot) transformValue(value interface{}) interface{} {
 
 	switch value := value.(type) {
+
 	case int:
 		return value
 	case int64:
