@@ -1,3 +1,31 @@
+<a name="v1.8.4"></a>
+# [v1.8.4](https://github.com/mabunixda/wattpilot/releases/tag/v1.8.4) - 04 Sep 2024
+
+## 1.8.4 (2024-09-04)
+
+#### Bug Fixes
+
+* forced update (c23d5de7)
+
+
+
+[Changes][v1.8.4]
+
+
+<a name="v1.8.3"></a>
+# [v1.8.3](https://github.com/mabunixda/wattpilot/releases/tag/v1.8.3) - 04 Sep 2024
+
+## 1.8.3 (2024-09-04)
+
+#### Bug Fixes
+
+* Log Delegation  (#48) (d7b720b9)
+
+
+
+[Changes][v1.8.3]
+
+
 <a name="v1.8.2"></a>
 # [v1.8.2](https://github.com/mabunixda/wattpilot/releases/tag/v1.8.2) - 04 Sep 2024
 
@@ -415,6 +443,8 @@
 [Changes][v1.0.0]
 
 
+[v1.8.4]: https://github.com/mabunixda/wattpilot/compare/v1.8.3...v1.8.4
+[v1.8.3]: https://github.com/mabunixda/wattpilot/compare/v1.8.2...v1.8.3
 [v1.8.2]: https://github.com/mabunixda/wattpilot/compare/v1.8.1...v1.8.2
 [v1.8.1]: https://github.com/mabunixda/wattpilot/compare/v1.8.0...v1.8.1
 [v1.8.0]: https://github.com/mabunixda/wattpilot/compare/v1.7.2...v1.8.0
