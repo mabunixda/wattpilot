@@ -10,7 +10,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"os"
 	"os/signal"
 	"strconv"
@@ -20,7 +19,6 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
-	logruswriter "github.com/sirupsen/logrus/hooks/writer"
 
 	"golang.org/x/crypto/pbkdf2"
 	"nhooyr.io/websocket"
@@ -118,15 +116,8 @@ func New(host string, password string) *Wattpilot {
 	return w
 
 }
-func (w *Wattpilot) SetLogger(logger *log.Logger) {
-	w.logger.SetFormatter(&logrus.TextFormatter{})
-
-	w.logger.AddHook(&logruswriter.Hook{
-		Writer: logger.Writer(),
-		LogLevels: []logrus.Level{
-			logrus.TraceLevel,
-		},
-	})
+func (w *Wattpilot) SetLogger(delegate func(string, string)) {
+	w.logger.AddHook(&CallHook{Call: delegate, LogLevels: logrus.AllLevels})
 }
 
 func (w *Wattpilot) SetLogLevel(level logrus.Level) {
