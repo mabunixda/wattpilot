@@ -20,6 +20,8 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
+	logruswriter "github.com/sirupsen/logrus/hooks/writer"
+
 	"golang.org/x/crypto/pbkdf2"
 	"nhooyr.io/websocket"
 )
@@ -117,8 +119,17 @@ func New(host string, password string) *Wattpilot {
 
 }
 func (w *Wattpilot) SetLogger(logger *log.Logger) {
-	w.logger.SetOutput(logger.Writer())
 	w.logger.SetFormatter(&logrus.TextFormatter{})
+
+	w.logger.AddHook(&logruswriter.Hook{
+		Writer: logger.Writer(),
+		LogLevels: []logrus.Level{
+			logrus.PanicLevel,
+			logrus.FatalLevel,
+			logrus.ErrorLevel,
+			logrus.WarnLevel,
+		},
+	})
 }
 
 func (w *Wattpilot) SetLogLevel(level logrus.Level) {
