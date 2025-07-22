@@ -25,8 +25,9 @@ import (
 )
 
 const (
-	ContextTimeout   = 60 // seconds
-	ReconnectTimeout = 5  // seconds
+	ContextTimeout    = 60 // seconds
+	ConnectionTimeout = 30 // seconds
+	ReconnectTimeout  = 5  // seconds
 
 	EventTypeHello          = "hello"
 	EventTypeAuthRequired   = "authRequired"
@@ -401,7 +402,7 @@ func (w *Wattpilot) Connect() error {
 		go w.connectionManager()
 	})
 
-	if w.connectAndWait(30 * time.Second) {
+	if w.connectAndWait(ConnectionTimeout * time.Second) {
 		return nil
 	}
 
@@ -429,7 +430,7 @@ func (w *Wattpilot) connectImpl() error {
 		return nil
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), ContextTimeout*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), ConnectionTimeout*time.Second)
 	defer cancel()
 
 	conn, _, err := websocket.Dial(ctx, fmt.Sprintf("ws://%s/ws", w.host), nil)
@@ -444,10 +445,12 @@ func (w *Wattpilot) connectImpl() error {
 	select {
 	case w.isConnected = <-w.connected:
 		if !w.isConnected {
+			w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Info("Authentication timeout")
 			w.disconnectImpl()
 			return errors.New("authentication failed")
 		}
 	case <-ctx.Done():
+		w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Info("Connection handshake timeout")
 		w.disconnectImpl()
 		return errors.New("connection handshake timeout")
 	}
@@ -455,10 +458,15 @@ func (w *Wattpilot) connectImpl() error {
 	// Wait for initialization
 	select {
 	case <-w.initialized:
-	// isInitialized is set by onEventFullStatus
+		// isInitialized is set by onEventFullStatus
+		w.logger.WithFields(logrus.Fields{"wattpilot": w.host, "initialized": w.isInitialized, "auhtenticated": w.isConnected}).Info("Initialization done")
+
 	case <-ctx.Done():
-		w.disconnectImpl()
-		return errors.New("initialization timeout")
+		if !w.isInitialized {
+			w.logger.WithFields(logrus.Fields{"wattpilot": w.host, "initialized": w.isInitialized, "auhtenticated": w.isConnected}).Info("Initialization timeout")
+			w.disconnectImpl()
+			return errors.New("initialization timeout")
+		}
 	}
 
 	return nil
@@ -492,7 +500,8 @@ func (w *Wattpilot) Disconnect() {
 }
 
 func (w *Wattpilot) disconnectImpl() {
-	w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Info("Closing connection...")
+
+	w.logger.WithFields(logrus.Fields{"wattpilot": w.host, "caller": getCallerFunctionName()}).Info("Closing connection...")
 
 	if w.conn == nil {
 		return // Already disconnected
@@ -711,14 +720,16 @@ func (w *Wattpilot) onEventFullStatus(message map[string]interface{}) {
 	if isPartial {
 		return
 	}
+
+	w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Trace("Initialization done")
+
 	if w.IsInitialized() {
 		return
 	}
 
-	w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Trace("Initialization done")
-
 	w.initialized <- true
 	w.isInitialized = true
+
 }
 
 func (w *Wattpilot) onEventDeltaStatus(message map[string]interface{}) {

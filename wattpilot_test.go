@@ -55,7 +55,7 @@ func TestConnect(t *testing.T) {
 		t.Skip("WATTPILOT_HOST and WATTPILOT_PASSWORD environment variables not set. Skipping integration test.")
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	w := New(host, pwd)
@@ -70,7 +70,7 @@ func TestConnect(t *testing.T) {
 		assert.NoError(t, err, "Connect should not return an error")
 		assert.True(t, w.IsInitialized(), "Wattpilot should be initialized after successful connection")
 	case <-ctx.Done():
-		assert.Fail(t, "Test timed out after 60 seconds", ctx.Err())
+		assert.Fail(t, "Test timed out after 30 seconds", ctx.Err())
 	}
 
 	w.Disconnect()
