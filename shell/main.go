@@ -94,7 +94,7 @@ func inUpdateStatus(w *api.Wattpilot, data []string) {
 }
 
 func inReconnect(w *api.Wattpilot, data []string) {
-	w.Disconnect()
+	// w.Disconnect()
 	go func() {
 		if err := w.Connect(); err != nil {
 			log.Printf("Failed to reconnect to wattpilot: %v", err)
@@ -119,7 +119,7 @@ func main() {
 		log.Fatal("WATTPILOT_HOST and WATTPILOT_PASSWORD must be set")
 	}
 	if level == "" {
-		level = "info"
+		level = "error"
 	}
 
 	w := api.New(host, pwd)
