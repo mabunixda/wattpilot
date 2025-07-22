@@ -25,7 +25,7 @@ import (
 )
 
 const (
-	ContextTimeout   = 30 // seconds
+	ContextTimeout   = 60 // seconds
 	ReconnectTimeout = 5  // seconds
 
 	EventTypeHello          = "hello"
@@ -74,11 +74,14 @@ type Wattpilot struct {
 	hashedpassword string
 	isInitialized  bool
 	isConnected    bool
+	isConnecting   atomic.Bool // New: To prevent concurrent reconnection attempts
 	data           map[string]interface{}
 	eventHandler   map[string]eventFunc
 
-	sendResponse chan string
-	interrupt    chan os.Signal
+	sendResponse  chan string
+	interrupt     chan os.Signal
+	reconnectChan chan struct{} // New: To trigger immediate reconnection
+	managerOnce   sync.Once     // New: To ensure connectionManager starts only once
 
 	notify *Pubsub
 	logger *logrus.Logger
@@ -92,10 +95,11 @@ func New(host string, password string) *Wattpilot {
 		password:       password,
 		hashedpassword: "",
 
-		connected:    make(chan bool),
-		initialized:  make(chan bool),
-		sendResponse: make(chan string),
-		interrupt:    make(chan os.Signal),
+		connected:     make(chan bool, 1),
+		initialized:   make(chan bool, 1),
+		sendResponse:  make(chan string),
+		interrupt:     make(chan os.Signal, 1),
+		reconnectChan: make(chan struct{}, 1),
 
 		conn:          nil,
 		isConnected:   false,
@@ -114,7 +118,7 @@ func New(host string, password string) *Wattpilot {
 		}
 	}
 
-	signal.Notify(w.interrupt, os.Interrupt) // Notify the interrupt channel for SIGINT
+	signal.Notify(w.interrupt, os.Interrupt, syscall.SIGTERM)
 
 	w.eventHandler = map[string]eventFunc{
 		EventTypeHello:          w.onEventHello,
@@ -387,126 +391,177 @@ func (w *Wattpilot) RequestStatusUpdate() error {
 }
 
 func (w *Wattpilot) Connect() error {
-
-	if w.isConnected || w.isInitialized {
-		w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Debug("Already Connected")
+	if w.IsInitialized() {
 		return nil
 	}
 
-	w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Info("Connecting")
-	var err error
+	w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Info("Connecting...")
 
-	conn, _, err := websocket.Dial(context.Background(), fmt.Sprintf("ws://%s/ws", w.host), nil)
+	w.managerOnce.Do(func() {
+		go w.connectionManager()
+	})
+
+	if w.connectAndWait(30 * time.Second) {
+		return nil
+	}
+
+	return errors.New("failed to connect within timeout")
+}
+
+func (w *Wattpilot) connectAndWait(timeout time.Duration) bool {
+	// Non-blocking trigger
+	select {
+	case w.reconnectChan <- struct{}{}:
+	default:
+	}
+
+	// Wait for initialization
+	select {
+	case <-w.initialized:
+		return true
+	case <-time.After(timeout):
+		return w.IsInitialized()
+	}
+}
+
+func (w *Wattpilot) connectImpl() error {
+	if w.isConnected {
+		return nil
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), ContextTimeout*time.Second)
+	defer cancel()
+
+	conn, _, err := websocket.Dial(ctx, fmt.Sprintf("ws://%s/ws", w.host), nil)
 	if err != nil {
 		return err
 	}
 	w.conn = conn
 
-	go w.processLoop(context.Background())
 	go w.receiveHandler()
 
-	w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Trace("Waiting on initial handshake and authentication")
-	w.isConnected = <-w.connected
-	w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Trace("Connection is ", w.isConnected)
-	if !w.isConnected {
-		return errors.New("could not connect")
+	// Wait for handshake
+	select {
+	case w.isConnected = <-w.connected:
+		if !w.isConnected {
+			w.disconnectImpl()
+			return errors.New("authentication failed")
+		}
+	case <-ctx.Done():
+		w.disconnectImpl()
+		return errors.New("connection handshake timeout")
 	}
 
-	w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Trace("Connected - waiting for initializiation...")
-
-	<-w.initialized
-
-	w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Trace("Connected - and initializiated")
+	// Wait for initialization
+	select {
+	case <-w.initialized:
+	// isInitialized is set by onEventFullStatus
+	case <-ctx.Done():
+		w.disconnectImpl()
+		return errors.New("initialization timeout")
+	}
 
 	return nil
 }
 
 func (w *Wattpilot) reconnect() {
+	if !w.isConnecting.CompareAndSwap(false, true) {
+		return // Already reconnecting
+	}
+	defer w.isConnecting.Store(false)
 
 	if w.isConnected {
-		err := w.RequestStatusUpdate()
-		if err == nil && w.isInitialized {
-			w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Info("reconnect - valid connection")
-			return
+		if err := w.RequestStatusUpdate(); err == nil {
+			return // Healthy
 		}
-		w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Error("Full Status Update failed: ", err)
+		w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Warn("Health check failed, reconnecting.")
 		w.disconnectImpl()
 	}
 
-	w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Debug("Reconnecting..")
-
-	if err := w.Connect(); err != nil {
-		w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Debug("Reconnect failure: ", err)
-		return
+	w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Info("Attempting to connect...")
+	if err := w.connectImpl(); err != nil {
+		w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Error("Failed to connect: ", err)
+	} else {
+		w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Info("Successfully reconnected.")
 	}
-	w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Info("Successfully reconnected")
-
 }
 
 func (w *Wattpilot) Disconnect() {
-	w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Info("Going to disconnect...")
-	w.disconnectImpl()
+	w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Info("Disconnecting client...")
 	w.interrupt <- syscall.SIGINT
 }
 
 func (w *Wattpilot) disconnectImpl() {
-	w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Info("Disconnecting...")
+	w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Info("Closing connection...")
 
-	if w.conn != nil {
-		w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Trace("Closing connection...")
-		if err := (*w.conn).CloseNow(); err != nil {
-			w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Trace("Error on closing connection: ", err)
-		}
+	if w.conn == nil {
+		return // Already disconnected
 	}
 
-	w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Trace("Closed Connection")
+	if err := (*w.conn).CloseNow(); err != nil {
+		w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Trace("Error on closing connection: ", err)
+	}
 
 	w.isInitialized = false
 	w.isConnected = false
 	w.conn = nil
 	w.data = make(map[string]interface{})
+
+	// Drain channels to prevent blocking future operations
+	select {
+	case <-w.connected:
+	default:
+	}
+	select {
+	case <-w.initialized:
+	default:
+	}
 }
 
-func (w *Wattpilot) processLoop(ctx context.Context) {
+func (w *Wattpilot) connectionManager() {
+	w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Info("Starting connection manager.")
 
-	w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Info("Starting processing loop...")
-	delayDuration := time.Duration(time.Second * ContextTimeout)
-	delay := time.NewTimer(delayDuration)
+	healthCheckTicker := time.NewTicker(time.Second * ContextTimeout) // Use for health checks
+	defer healthCheckTicker.Stop()
 
 	for {
 		select {
-		case <-delay.C:
-			w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Debug("Hello...")
-
-			delay.Reset(delayDuration)
-
-			if !w.isInitialized {
-				w.disconnectImpl()
+		case <-healthCheckTicker.C:
+			if !w.isConnected || !w.isInitialized {
+				// Connection is not healthy, attempt to reconnect
+				select {
+				case w.reconnectChan <- struct{}{}:
+				default:
+				}
 			}
-			w.reconnect()
-
-		case <-ctx.Done():
+		case <-w.reconnectChan:
+			time.Sleep(ReconnectTimeout * time.Second) // Wait a bit before reconnecting
+			go w.reconnect()
 		case <-w.interrupt:
-			w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Trace("Stopping process loop...")
+			w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Info("Stopping connection manager.")
 			w.disconnectImpl()
-			if !delay.Stop() {
-				w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Trace("Waiting on delay...")
-				// <-delay.C
-			}
-			w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Trace("Stopped process loop...")
 			return
 		}
 	}
 }
 
 func (w *Wattpilot) receiveHandler() {
-
 	w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Info("Starting receive handler...")
 
 	for {
+		if w.conn == nil {
+			w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Info("Connection is nil, stopping receive handler.")
+			return
+		}
 		_, msg, err := w.conn.Read(context.Background())
 		if err != nil {
-			w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Info("Stopping receive handler...")
+			w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Warn("Connection read error: ", err)
+			w.disconnectImpl()
+			select {
+			case w.reconnectChan <- struct{}{}:
+			default:
+			}
+			w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Info("Stopping receive handler.")
 			return
 		}
 		data := make(map[string]interface{})
@@ -527,7 +582,6 @@ func (w *Wattpilot) receiveHandler() {
 		funcCall(data)
 		w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Trace("done ", msgType)
 	}
-
 }
 
 func (w *Wattpilot) onEventHello(message map[string]interface{}) {

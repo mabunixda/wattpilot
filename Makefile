@@ -1,4 +1,4 @@
-all: clean fmt wattpilot_shell wattpilot_exporter
+all: clean fmt test wattpilot_shell wattpilot_exporter
 
 preprocess: fmt
 	go generate ./...
