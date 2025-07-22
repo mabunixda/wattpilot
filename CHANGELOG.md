@@ -1,3 +1,17 @@
+<a name="v1.8.5"></a>
+# [v1.8.5](https://github.com/mabunixda/wattpilot/releases/tag/v1.8.5) - 22 Jul 2025
+
+## 1.8.5 (2025-07-22)
+
+#### Bug Fixes
+
+* wattpilot error handling (#51) (aea7aa8d)
+
+
+
+[Changes][v1.8.5]
+
+
 <a name="v1.8.4"></a>
 # [v1.8.4](https://github.com/mabunixda/wattpilot/releases/tag/v1.8.4) - 04 Sep 2024
 
@@ -443,6 +457,7 @@
 [Changes][v1.0.0]
 
 
+[v1.8.5]: https://github.com/mabunixda/wattpilot/compare/v1.8.4...v1.8.5
 [v1.8.4]: https://github.com/mabunixda/wattpilot/compare/v1.8.3...v1.8.4
 [v1.8.3]: https://github.com/mabunixda/wattpilot/compare/v1.8.2...v1.8.3
 [v1.8.2]: https://github.com/mabunixda/wattpilot/compare/v1.8.1...v1.8.2
