@@ -20,13 +20,28 @@ import (
 
 	"github.com/sirupsen/logrus"
 
+	"github.com/coder/websocket"
 	"golang.org/x/crypto/pbkdf2"
-	"nhooyr.io/websocket"
 )
 
 const (
 	ContextTimeout   = 30 // seconds
 	ReconnectTimeout = 5  // seconds
+
+	EventTypeHello          = "hello"
+	EventTypeAuthRequired   = "authRequired"
+	EventTypeResponse       = "response"
+	EventTypeAuthSuccess    = "authSuccess"
+	EventTypeAuthError      = "authError"
+	EventTypeFullStatus     = "fullStatus"
+	EventTypeDeltaStatus    = "deltaStatus"
+	EventTypeClearInverters = "clearInverters"
+	EventTypeUpdateInverter = "updateInverter"
+
+	RequestTypeAuth              = "auth"
+	RequestTypeRequestFullStatus = "requestFullStatus"
+	RequestTypeSetValue          = "setValue"
+	RequestTypeSecuredMsg        = "securedMsg"
 )
 
 //go:generate go run gen/generate.go
@@ -102,15 +117,15 @@ func New(host string, password string) *Wattpilot {
 	signal.Notify(w.interrupt, os.Interrupt) // Notify the interrupt channel for SIGINT
 
 	w.eventHandler = map[string]eventFunc{
-		"hello":          w.onEventHello,
-		"authRequired":   w.onEventAuthRequired,
-		"response":       w.onEventResponse,
-		"authSuccess":    w.onEventAuthSuccess,
-		"authError":      w.onEventAuthError,
-		"fullStatus":     w.onEventFullStatus,
-		"deltaStatus":    w.onEventDeltaStatus,
-		"clearInverters": w.onEventClearInverters,
-		"updateInverter": w.onEventUpdateInverter,
+		EventTypeHello:          w.onEventHello,
+		EventTypeAuthRequired:   w.onEventAuthRequired,
+		EventTypeResponse:       w.onEventResponse,
+		EventTypeAuthSuccess:    w.onEventAuthSuccess,
+		EventTypeAuthError:      w.onEventAuthError,
+		EventTypeFullStatus:     w.onEventFullStatus,
+		EventTypeDeltaStatus:    w.onEventDeltaStatus,
+		EventTypeClearInverters: w.onEventClearInverters,
+		EventTypeUpdateInverter: w.onEventUpdateInverter,
 	}
 
 	return w
@@ -294,40 +309,36 @@ func (w *Wattpilot) GetPower() (float64, error) {
 	return strconv.ParseFloat(v.(string), 64)
 }
 
-func (w *Wattpilot) GetCurrents() (float64, float64, float64, error) {
-
-	var currents []float64
-	for _, i := range []string{"amps1", "amps2", "amps3"} {
-		v, err := w.GetProperty(i)
+func (w *Wattpilot) getFloatValues(properties []string) ([]float64, error) {
+	var values []float64
+	for _, p := range properties {
+		v, err := w.GetProperty(p)
 		if err != nil {
-			return -1, -1, -1, err
+			return nil, err
 		}
-		fi, err := strconv.ParseFloat(v.(string), 64)
+		f, err := strconv.ParseFloat(v.(string), 64)
 		if err != nil {
-			return -1, -1, -1, err
+			return nil, err
 		}
-
-		currents = append(currents, fi)
+		values = append(values, f)
 	}
-	return currents[0], currents[1], currents[2], nil
+	return values, nil
+}
+
+func (w *Wattpilot) GetCurrents() (float64, float64, float64, error) {
+	values, err := w.getFloatValues([]string{"amps1", "amps2", "amps3"})
+	if err != nil {
+		return -1, -1, -1, err
+	}
+	return values[0], values[1], values[2], nil
 }
 
 func (w *Wattpilot) GetVoltages() (float64, float64, float64, error) {
-
-	var voltages []float64
-	for _, i := range []string{"voltage1", "voltage2", "voltage2"} {
-		v, err := w.GetProperty(i)
-		if err != nil {
-			return -1, -1, -1, err
-		}
-		fi, err := strconv.ParseFloat(v.(string), 64)
-		if err != nil {
-			return -1, -1, -1, err
-		}
-
-		voltages = append(voltages, fi)
+	values, err := w.getFloatValues([]string{"voltage1", "voltage2", "voltage3"})
+	if err != nil {
+		return -1, -1, -1, err
 	}
-	return voltages[0], voltages[1], voltages[2], nil
+	return values[0], values[1], values[2], nil
 }
 
 func (w *Wattpilot) SetCurrent(current float64) error {
@@ -366,7 +377,7 @@ func (w *Wattpilot) RequestStatusUpdate() error {
 	w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Debug("requesting status update...")
 
 	message := make(map[string]interface{})
-	message["type"] = "requestFullStatus"
+	message["type"] = RequestTypeRequestFullStatus
 	message["requestId"] = w.getRequestId()
 	if err := w.onSendResponse(w.secured, message); err != nil {
 		return err
@@ -499,8 +510,8 @@ func (w *Wattpilot) receiveHandler() {
 			return
 		}
 		data := make(map[string]interface{})
-		err = json.Unmarshal(msg, &data)
-		if err != nil {
+		if err := json.Unmarshal(msg, &data); err != nil {
+			w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Errorf("failed to unmarshal message: %v", err)
 			continue
 		}
 		msgType, isTypeAvailable := data["type"]
@@ -557,12 +568,15 @@ func (w *Wattpilot) onEventAuthRequired(message map[string]interface{}) {
 	hash1 := sha256sum(token1 + w.hashedpassword)
 	hash := sha256sum(authToken + token2 + hash1)
 	response := map[string]interface{}{
-		"type":   "auth",
+		"type":   RequestTypeAuth,
 		"token3": authToken,
 		"hash":   hash,
 	}
-	err := w.onSendResponse(false, response)
-	w.isInitialized = (err != nil)
+	if err := w.onSendResponse(false, response); err != nil {
+		w.isInitialized = false
+		return
+	}
+	w.isInitialized = true
 }
 
 func (w *Wattpilot) onSendResponse(secured bool, message map[string]interface{}) error {
@@ -574,20 +588,26 @@ func (w *Wattpilot) onSendResponse(secured bool, message map[string]interface{})
 
 	if secured {
 		msgId := message["requestId"].(int64)
-		payload, _ := json.Marshal(message)
+		payload, err := json.Marshal(message)
+		if err != nil {
+			return err
+		}
 
 		mac := hmac.New(sha256.New, []byte(w.hashedpassword))
 		mac.Write(payload)
 		message = make(map[string]interface{})
-		message["type"] = "securedMsg"
+		message["type"] = RequestTypeSecuredMsg
 		message["data"] = string(payload)
 		message["requestId"] = fmt.Sprintf("%d", msgId) + "sm"
 		message["hmac"] = hex.EncodeToString(mac.Sum(nil))
 	}
 
-	data, _ := json.Marshal(message)
+	data, err := json.Marshal(message)
+	if err != nil {
+		return err
+	}
 
-	err := w.conn.Write(context.Background(), websocket.MessageText, data)
+	err = w.conn.Write(context.Background(), websocket.MessageText, data)
 	if err != nil {
 		w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Trace("Sending data to wattpilot: ", message["data"], " Error: ", err)
 		return err
@@ -608,7 +628,7 @@ func (w *Wattpilot) onEventResponse(message map[string]interface{}) {
 		w.logger.WithFields(logrus.Fields{"wattpilot": w.host}).Error("Failure happened: ", message["message"])
 		return
 	}
-	if mType == "response" {
+	if mType == EventTypeResponse {
 		w.sendResponse <- message["message"].(string)
 		return
 	}
@@ -679,7 +699,7 @@ func (w *Wattpilot) onEventUpdateInverter(message map[string]interface{}) {
 func (w *Wattpilot) sendUpdate(name string, value interface{}) error {
 
 	message := make(map[string]interface{})
-	message["type"] = "setValue"
+	message["type"] = RequestTypeSetValue
 	message["requestId"] = w.getRequestId()
 	message["key"] = name
 	message["value"] = w.transformValue(value)

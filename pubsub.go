@@ -37,6 +37,7 @@ func (ps *Pubsub) Publish(topic string, msg interface{}) {
 	if ps.closed {
 		return
 	}
+
 	for _, ch := range ps.subs[topic] {
 		go func(ch chan interface{}) {
 			ch <- msg

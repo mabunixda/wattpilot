@@ -1,4 +1,4 @@
-all: fmt wattpilot_shell wattpilot_exporter
+all: clean fmt wattpilot_shell wattpilot_exporter
 
 preprocess: fmt
 	go generate ./...
@@ -19,3 +19,6 @@ clean:
 
 docker:
 	make -C prometheus docker
+
+test:
+	go test -v ./
