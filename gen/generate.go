@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"sort"
@@ -13,7 +14,7 @@ import (
 )
 
 const (
-	fullURLFile = "https://github.com/joscha82/wattpilot/blob/main/src/wattpilot/ressources/wattpilot.yaml"
+	fullURLFile = "https://raw.githubusercontent.com/joscha82/wattpilot/refs/heads/main/src/wattpilot/ressources/wattpilot.yaml"
 	output      = "wattpilot_mapping_gen.go"
 )
 
@@ -28,18 +29,20 @@ func downloadWattpilotYaml() ([]byte, error) {
 	// Put content on file
 	resp, err := client.Get(fullURLFile)
 	if err != nil {
-		print(err)
+		return nil, err
 	}
 	defer resp.Body.Close()
 	return io.ReadAll(resp.Body)
 }
 
 func main() {
-	s, _ := downloadWattpilotYaml()
+	s, err := downloadWattpilotYaml()
+	if err != nil {
+		log.Fatalf("failed to download wattpilot yaml: %v", err)
+	}
 	a := make(map[string]interface{})
 	if err := yaml.Unmarshal([]byte(s), &a); err != nil {
-		print(err)
-		return
+		log.Fatalf("failed to unmarshal yaml: %v", err)
 	}
 	propertyMap := make(map[string]string)
 	for _, v := range a["properties"].([]interface{}) {
@@ -60,12 +63,15 @@ func main() {
 		}
 	}
 
-	f, _ := os.Create(output)
+	f, err := os.Create(output)
+	if err != nil {
+		log.Fatalf("failed to create output file: %v", err)
+	}
 	defer f.Close()
 
 	w := bufio.NewWriter(f)
 	if _, err := w.WriteString("package wattpilot\nvar propertyMap = map[string]string {\n"); err != nil {
-		return
+		log.Fatalf("failed to write to output file: %v", err)
 	}
 	keys := api.Keys(propertyMap)
 	sort.Strings(keys)
@@ -74,12 +80,13 @@ func main() {
 		i := keys[idx]
 		s := propertyMap[i]
 		if _, err := w.WriteString(fmt.Sprintf("\"%s\": \"%s\",\n", i, s)); err != nil {
-			return
+			log.Fatalf("failed to write to output file: %v", err)
 		}
 	}
 	if _, err := w.WriteString("}\n"); err != nil {
-		return
+		log.Fatalf("failed to write to output file: %v", err)
 	}
-	w.Flush()
-
+	if err := w.Flush(); err != nil {
+		log.Fatalf("failed to flush writer: %v", err)
+	}
 }

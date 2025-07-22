@@ -1,13 +1,13 @@
 ARG BUILD_DATE=0
 ARG COMMIT=0
 ARG VERSION=unknown
-ARG BINARY=wattpilot_exporter
+ARG BINARY=prometheus
 
-FROM golang:stretch as builder
+FROM golang:1.23 AS builder
 ARG BINARY
 RUN mkdir -p $GOPATH/pkg/mod $GOPATH/bin $GOPATH/src /${BINARY}
-COPY . /${BINARY}
-WORKDIR /${BINARY}
+COPY . $GOPATH/src
+WORKDIR $GOPATH/src
 
 RUN CGO_ENABLED=0 make ${BINARY}
 
@@ -20,6 +20,6 @@ ENV WATTPILOT_HOST=""
 ENV WATTPILOT_PWD=""
 ENV WATTPILOT_LOG=Info
 
-COPY --from=builder /${BINARY}/${BINARY} /image
+COPY --from=builder /go/src/${BINARY}/${BINARY} /image
 
 ENTRYPOINT [ "/image" ]%

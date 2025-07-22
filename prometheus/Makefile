@@ -12,7 +12,7 @@ else
 	ITERATION:=$(_ITERATION)
 endif
 
-all: wattpilot_exporter
+all: prometheus
 
 build: $(BINARY)
 $(BINARY): main.go
@@ -23,14 +23,6 @@ windows: $(BINARY).amd64.exe
 $(BINARY).amd64.exe: main.go
 	# Building windows 64-bit x86 binary.
 	GOOS=windows GOARCH=amd64 go build -o $@ -ldflags "-w -s $(VERSION_LDFLAGS)"
-
-docker-context:
-	(docker buildx ls | grep ^wattpilot_exporter > /dev/null ) && echo "buildx context exists" || docker buildx create --name wattpilot_exporter
-
-docker: docker-context
-	docker buildx use wattpilot_exporter
-	docker buildx inspect --bootstrap
-	docker buildx build --platform linux/amd64,linux/arm64 -t mabunixda/wattpilot_exporter --push .
 
 clean:
 	rm -f $(BINARY) $(BINARY).amd64.exe

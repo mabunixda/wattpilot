@@ -1,14 +1,25 @@
 module github.com/mabunixda/wattpilot
 
-go 1.21
+go 1.23.2
 
 require (
+	github.com/c-bata/go-prompt v0.2.6
+	github.com/coder/websocket v1.8.13
 	github.com/sirupsen/logrus v1.9.3
-	golang.org/x/crypto v0.24.0
+	github.com/stretchr/testify v1.10.0
+	golang.org/x/crypto v0.40.0
 	gopkg.in/yaml.v2 v2.4.0
-	nhooyr.io/websocket v1.8.11
 )
 
-require golang.org/x/sys v0.21.0 // indirect
-
-retract v1.6.3
+require (
+	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/mattn/go-colorable v0.1.14 // indirect
+	github.com/mattn/go-isatty v0.0.20 // indirect
+	github.com/mattn/go-runewidth v0.0.16 // indirect
+	github.com/mattn/go-tty v0.0.7 // indirect
+	github.com/pkg/term v1.2.0-beta.2 // indirect
+	github.com/pmezard/go-difflib v1.0.0 // indirect
+	github.com/rivo/uniseg v0.4.7 // indirect
+	golang.org/x/sys v0.34.0 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
+)

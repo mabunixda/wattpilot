@@ -126,7 +126,7 @@ func main() {
 	pwd := os.Getenv("WATTPILOT_PASSWORD")
 	level := os.Getenv("WATTPILOT_LOG")
 	if host == "" || pwd == "" {
-		return
+		log.Fatal("WATTPILOT_HOST and WATTPILOT_PASSWORD must be set")
 	}
 	if level == "" {
 		level = "WARN"
@@ -134,10 +134,12 @@ func main() {
 
 	charger := wattpilot.New(host, pwd)
 	if err := charger.ParseLogLevel(level); err != nil {
-		log.Fatalf("Could not update loglevel to %s: %w", level, err)
+		log.Fatalf("Could not update loglevel to %s: %v", level, err)
 	}
 
-	charger.Connect()
+	if err := charger.Connect(); err != nil {
+		log.Fatalf("Failed to connect to wattpilot: %v", err)
+	}
 
 	foo := newWattpilotCollector(charger)
 	prometheus.MustRegister(foo)

@@ -11,7 +11,7 @@ declare -A annotate_map=(
 )
 
 # Must match the repo name.
-BINARY="wattpilot_exporter"
+BINARY="prometheus"
 # Github repo containing homebrew formula repo.
 HBREPO="mabunixda/wattpilot"
 MAINT="Martin Buchleitner"
